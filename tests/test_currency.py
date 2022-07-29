@@ -130,3 +130,19 @@ class CurrencyFilterTestCase(unittest.TestCase):
         template = env.from_string("{{ obj | currency }}")
         result = template.render(obj=object())
         self.assertEqual(result, "$0.00")
+
+    def test_group_separator_default(self) -> None:
+        """Test that the group separator argument defaults to True."""
+        env = Environment()
+        env.add_filter("currency", currency)
+        template = env.from_string("{{ 811375 | currency }}")
+        result = template.render()
+        self.assertEqual(result, "$811,375.00")
+
+    def test_group_separator_argument(self) -> None:
+        """Test that we can control group separators with a filter keyword argument."""
+        env = Environment()
+        env.add_filter("currency", currency)
+        template = env.from_string("{{ 811375 | currency: group_separator: false }}")
+        result = template.render()
+        self.assertEqual(result, "$811375.00")
