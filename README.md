@@ -8,7 +8,7 @@ This project is in its infancy. Documentation is currently limited to doc commen
 
 ### Included filters
 
-- Currency (aka money) formatting ([source](), [tests]())
+- Currency (aka money) formatting ([source](https://github.com/jg-rp/liquid_babel/blob/main/liquid_babel/filters/currency.py), [tests](https://github.com/jg-rp/liquid_babel/blob/main/tests/test_currency.py))
 
 ### Filters on the to-do list
 
