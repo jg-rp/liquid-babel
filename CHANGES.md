@@ -6,3 +6,7 @@
 
 - New currency formatting filter.
 - New convenience "money" filters. `money`, `money_with_currency`, `money_without_currency` and `money_without_trailing_zeros` behave similarly to Shopify's equivalents.
+
+**Fixes**
+
+- Currency string parsing. Allow an input locale to be set independently from the output locale.

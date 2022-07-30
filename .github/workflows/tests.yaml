@@ -19,6 +19,12 @@ jobs:
           - { name: "PyPy", python: pypy-3.7, os: ubuntu-latest, tox: pypy37 }
           - { name: "Typing", python: "3.9", os: ubuntu-latest, tox: typing }
           - { name: "Lint", python: "3.9", os: ubuntu-latest, tox: lint }
+          - {
+              name: "Coverage",
+              python: "3.9",
+              os: ubuntu-latest,
+              tox: coverage,
+            }
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
