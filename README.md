@@ -2,11 +2,27 @@
 
 Internationalization and localization for [Liquid](https://github.com/jg-rp/liquid/) templates.
 
-## Project Status
+[![PyPI](https://img.shields.io/pypi/v/liquid-babel?style=flat-square)](https://pypi.org/project/liquid-babel/)
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/jg-rp/liquid-babel/Tests?style=flat-square)](https://github.com/jg-rp/liquid-babel/actions)
+[![PyPI - License](https://img.shields.io/pypi/l/liquid-babel?style=flat-square)](https://github.com/jg-rp/liquid-babel/blob/main/LICENSE)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/liquid-babel?style=flat-square)](https://pypi.org/project/liquid-babel/)
+![PyPy Version](https://img.shields.io/badge/pypy-3.7%20%7C%203.8-blue?style=flat-square)
 
-This project is in its infancy. Documentation is currently limited to doc comments in source files. I'll update this readme with links to docs and PyPi as and when they become available.
+## Install
 
-## Currency
+Install Python Liquid Babel using [pipenv](https://pipenv.pypa.io/en/latest/):
+
+```plain
+$ pipenv install liquid-babel
+```
+
+Or [pip](https://pip.pypa.io/en/stable/getting-started/):
+
+```plain
+python -m pip install -U liquid-babel
+```
+
+## Currency Filter
 
 Currency (aka money) formatting ([source](https://github.com/jg-rp/liquid-babel/blob/main/liquid-babel/filters/currency.py), [tests](https://github.com/jg-rp/liquid_babel/blob/main/tests/test_currency.py))
 
@@ -70,7 +86,7 @@ $10.00 CAD
 $10
 ```
 
-## Number / Decimal
+## Number / Decimal Filter
 
 Decimal number formatting. ([source](https://github.com/jg-rp/liquid-babel/blob/main/liquid-babel/filters/number.py), [tests](https://github.com/jg-rp/liquid_babel/blob/main/tests/test_number.py))
 
