@@ -14,7 +14,7 @@ Currency (aka money) formatting ([source](https://github.com/jg-rp/liquid-babel/
 
 **Default options**
 
-The `Currency` class defaults to looking for a locale in a render context variable called `locale`, and a currency code in a render context variable called `currency_code`. It uses the locale's standard format and falls back to en_US and USD if those context variables don't exist.
+Instances of the `Currency` class default to looking for a locale in a render context variable called `locale`, and a currency code in a render context variable called `currency_code`. It uses the locale's standard format and falls back to en_US and USD if those context variables don't exist.
 
 ```python
 from liquid import Environment
@@ -35,7 +35,7 @@ $100,457.99
 £100,457.99
 ```
 
-**Money**
+#### Money
 
 For convenience, some "money" filters are defined that mimic Shopify's money filter behavior.
 
