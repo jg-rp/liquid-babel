@@ -1,9 +1,11 @@
 # flake8: noqa
 # pylint: disable=useless-import-alias,missing-module-docstring
 from .currency import Currency as Currency
+from .number import Number as Number
 
 # For convenience. Use defaults.
 currency = Currency()
+number = Number()
 
 # For convenience. Something akin to Shopify's money filters.
 money = currency
