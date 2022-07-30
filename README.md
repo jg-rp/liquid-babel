@@ -6,9 +6,9 @@ Internationalization and localization for [Liquid](https://github.com/jg-rp/liqu
 
 This project is in its infancy. Documentation is currently limited to doc comments in source files. I'll update this readme with links to docs and PyPi as and when they become available.
 
-### Included filters
+## Included filters
 
-#### Currency
+### Currency
 
 Currency (aka money) formatting ([source](https://github.com/jg-rp/liquid-babel/blob/main/liquid-babel/filters/currency.py), [tests](https://github.com/jg-rp/liquid_babel/blob/main/tests/test_currency.py))
 
@@ -72,7 +72,7 @@ $10.00 CAD
 $10
 ```
 
-### Filters on the to-do list
+## Filters on the to-do list
 
 - Decimal formatting
 - Date and time formatting
@@ -80,6 +80,6 @@ $10
 - Pluralization
 - Inline translation
 
-### Tags on the to-do list
+## Tags on the to-do list
 
 - Translation block tag
