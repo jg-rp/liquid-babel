@@ -11,6 +11,10 @@ from liquid import Environment
 
 from liquid_babel.filters import Currency
 from liquid_babel.filters import currency
+from liquid_babel.filters import money
+from liquid_babel.filters import money_with_currency
+from liquid_babel.filters import money_without_currency
+from liquid_babel.filters import money_without_trailing_zeros
 
 
 class Case(NamedTuple):
@@ -146,3 +150,37 @@ class CurrencyFilterTestCase(unittest.TestCase):
         template = env.from_string("{{ 811375 | currency: group_separator: false }}")
         result = template.render()
         self.assertEqual(result, "$811375.00")
+
+    def test_money(self) -> None:
+        """Test that the convenience money filter formats similarly to shopify's."""
+        env = Environment()
+        env.add_filter("money", money)
+        template = env.from_string("{{ 10 | money }}")
+        result = template.render()
+        self.assertEqual(result, "$10.00")
+
+    def test_money_with_currency(self) -> None:
+        """Test that the convenience money_with_currency filter formats similarly to shopify's."""
+        env = Environment()
+        env.add_filter("money_with_currency", money_with_currency)
+        template = env.from_string("{{ 10 | money_with_currency }}")
+        result = template.render(currency_code="CAD", locale="en_CA")
+        self.assertEqual(result, "$10.00 CAD")
+
+    def test_money_without_currency(self) -> None:
+        """Test that the convenience money_without_currency filter formats similarly
+        to shopify's."""
+        env = Environment()
+        env.add_filter("money_without_currency", money_without_currency)
+        template = env.from_string("{{ 10 | money_without_currency }}")
+        result = template.render()
+        self.assertEqual(result, "10.00")
+
+    def test_money_without_trailing_zeros(self) -> None:
+        """Test that the convenience money_without_trailing_zeros filter formats similarly
+        to shopify's."""
+        env = Environment()
+        env.add_filter("money_without_trailing_zeros", money_without_trailing_zeros)
+        template = env.from_string("{{ 10 | money_without_trailing_zeros }}")
+        result = template.render()
+        self.assertEqual(result, "$10")

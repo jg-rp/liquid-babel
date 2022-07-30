@@ -52,6 +52,7 @@ class Currency:
         default_locale: str = "en_US",
         context_format: str = "currency_format",
         default_format: Optional[str] = None,
+        currency_digits: bool = True,
     ) -> None:
         self.context_currency_code = context_currency_code
         self.default_currency_code = default_currency_code
@@ -59,6 +60,7 @@ class Currency:
         self.default_locale = Locale.parse(default_locale)
         self.context_format = context_format
         self.default_format = default_format
+        self.currency_digits = currency_digits
 
     @liquid_filter
     def __call__(
@@ -83,6 +85,7 @@ class Currency:
                 format=_format,
                 locale=locale,
                 group_separator=group_separator,
+                currency_digits=self.currency_digits,
             ),
         )
 
