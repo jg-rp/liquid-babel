@@ -17,7 +17,7 @@ from liquid.filter import num_arg
 from liquid.filter import with_context
 
 
-# pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods too-many-instance-attributes
 @with_context
 class Number:
     """A Liquid filter for formatting decimal values.
