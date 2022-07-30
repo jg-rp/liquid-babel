@@ -2,9 +2,6 @@
 # pylint: disable=missing-class-docstring,missing-function-docstring
 import unittest
 
-from typing import Dict
-from typing import NamedTuple
-
 from babel import UnknownLocaleError
 
 from liquid import Environment
@@ -17,13 +14,7 @@ from liquid_babel.filters import money_without_currency
 from liquid_babel.filters import money_without_trailing_zeros
 
 
-class Case(NamedTuple):
-    description: str
-    template: str
-    expect: str
-    globals: Dict[str, object]
-
-
+# pylint: disable=too-many-public-methods
 class CurrencyFilterTestCase(unittest.TestCase):
     def test_default_currency_code_and_locale(self) -> None:
         """Test that the default currency code is USD and locale is en_US."""
@@ -184,3 +175,33 @@ class CurrencyFilterTestCase(unittest.TestCase):
         template = env.from_string("{{ 10 | money_without_trailing_zeros }}")
         result = template.render()
         self.assertEqual(result, "$10")
+
+    def test_parse_string(self) -> None:
+        """Test parse a string to a decimal with the default input locale."""
+        env = Environment()
+        env.add_filter("currency", currency)
+        # Parse as en_US
+        template = env.from_string("{{ '10,000.00' | currency }}")
+        result = template.render(locale="de")
+        # Render as de
+        self.assertEqual(result, "10.000,00\xa0$")
+
+    def test_parse_string_with_input_locale_from_context(self) -> None:
+        """Test parse a string to a decimal with an input locale from context."""
+        env = Environment()
+        env.add_filter("currency", currency)
+        # Parse as de
+        template = env.from_string("{{ '10.000,00' | currency }}")
+        result = template.render(locale="en_US", input_locale="de")
+        # Render as en_US
+        self.assertEqual(result, "$10,000.00")
+
+    def test_set_default_input_locale(self) -> None:
+        """Test that we can set the default input locale."""
+        env = Environment()
+        # Parse as de
+        env.add_filter("currency", Currency(default_input_locale="de"))
+        template = env.from_string("{{ '10.000,00' | currency }}")
+        result = template.render(locale="en_US")
+        # Render as en_US
+        self.assertEqual(result, "$10,000.00")
