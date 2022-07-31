@@ -19,6 +19,7 @@ twine = "*"
 build = "*"
 liquid-babel = {editable = true, path = "."}
 ipython = "*"
+python-liquid-extra = "*"
 
 [requires]
 python_version = "3.10"

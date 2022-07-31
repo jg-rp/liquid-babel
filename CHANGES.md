@@ -1,5 +1,9 @@
 # Python Liquid Babel Change Log
 
+## Version 0.1.0
+
+Version bump to indicate beta status.
+
 ## Version 0.0.1
 
 **Features**
