@@ -38,8 +38,10 @@ env = Environment()
 env.add_filter("currency", Currency())
 
 template = env.from_string("{{ 100457.99 | currency }}")
+
 print(template.render())
 print(template.render(currency_code="GBP"))
+print(template.render(locale="de", currency_code="CAD"))
 ```
 
 **Output**
@@ -47,6 +49,7 @@ print(template.render(currency_code="GBP"))
 ```plain
 $100,457.99
 £100,457.99
+100.457,99 CA$
 ```
 
 ### Money
@@ -97,10 +100,14 @@ from liquid import Environment
 from liquid_babel.filters import Number
 
 env = Environment()
+# Register an instance of the `Number` class as a filter called "decimal".
 env.add_filter("decimal", Number())
 
-# parse a number from a string in the default (en_US) input locale.
-template = env.from_string("{{ '10,000.23' | decimal }}")
+# Parse a number from a string in the default (en_US) input locale.
+template = env.from_string("""\
+{{ '10,000.23' | decimal }}
+{{ '10,000.23' | decimal: group_separator: false }}
+""")
 print(template.render(locale="de"))
 print(template.render(locale="en_GB"))
 ```
@@ -109,7 +116,10 @@ print(template.render(locale="en_GB"))
 
 ```plain
 10.000,23
+10000,23
+
 10,000.23
+10000.23
 ```
 
 ## Filters on the to-do list
