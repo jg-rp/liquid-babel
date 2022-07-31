@@ -88,7 +88,7 @@ $10
 
 ## Number / Decimal Filter
 
-Decimal number formatting. ([source](https://github.com/jg-rp/liquid-babel/blob/main/liquid-babel/filters/number.py), [tests](https://github.com/jg-rp/liquid_babel/blob/main/tests/test_number.py))
+Decimal number formatting. ([source](https://github.com/jg-rp/liquid-babel/blob/main/liquid_babel/filters/number.py), [tests](https://github.com/jg-rp/liquid-babel/blob/main/tests/test_number.py))
 
 Instances of the `Number` class default to looking for a locale in a render context variable called `locale`. It uses the locale's standard format and falls back to en_US if those context variables don't exist.
 
