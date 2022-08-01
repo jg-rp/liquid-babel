@@ -1,6 +1,6 @@
 # Python Liquid Babel Change Log
 
-## VErsion 0.2.0 (unreleased)
+## Version 0.2.0 (unreleased)
 
 **Features**
 
