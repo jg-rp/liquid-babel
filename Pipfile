@@ -6,6 +6,8 @@ name = "pypi"
 [packages]
 python-liquid = "*"
 babel = "*"
+pytz = "*"
+python-dateutil = "*"
 
 [dev-packages]
 black = "*"
@@ -20,6 +22,7 @@ build = "*"
 liquid-babel = {editable = true, path = "."}
 ipython = "*"
 python-liquid-extra = "*"
+types-python-dateutil = "*"
 
 [requires]
 python_version = "3.10"

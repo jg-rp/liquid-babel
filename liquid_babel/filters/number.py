@@ -32,8 +32,8 @@ class Number:
     :param locale_var: The name of a render context variable that resolves to the
         current locale. Defaults to ``"locale"``.
     :type locale_var: str
-    :param default_locale : A fallback locale to use if ``locale_var`` can not be
-        resolved. Defaults to ``"en_US"``.
+    :param default_locale: A fallback locale to use if `locale_var` can not be
+        resolved. Defaults to `"en_US"`.
     :type default_locale: str
     :param format_var: The name of a render context variable that resolves to the
         current decimal format string. Defaults to ``"decimal_format"``.

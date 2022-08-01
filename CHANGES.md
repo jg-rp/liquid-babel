@@ -1,5 +1,11 @@
 # Python Liquid Babel Change Log
 
+## VErsion 0.2.0 (unreleased)
+
+**Features**
+
+- New `datetime` formatting filter.
+
 ## Version 0.1.0
 
 Version bump to indicate beta status.
