@@ -80,7 +80,7 @@ class DateTime:
         self.locale_var = locale_var
         self.default_locale = Locale.parse(default_locale)
         self.format_var = format_var
-        self.default_format = default_format
+        self.default_format = self.formats.get(default_format, default_format)
         self.input_timezone_var = input_timezone_var
         self.default_input_timezone = pytz.timezone(default_input_timezone)
 
@@ -98,11 +98,16 @@ class DateTime:
             self.locale_var,
             default=self.default_locale,
         )
-        format_string = format or self.default_format
-        _format = context.resolve(
-            self.format_var,
-            default=self.formats.get(format_string, format_string),
-        )
+
+        if format:
+            _format = self.formats.get(format, format)
+        else:
+            format_string = context.resolve(self.format_var)
+            if is_undefined(format_string):
+                _format = self.default_format
+            else:
+                _format = self.formats.get(format_string, format_string)
+
         tzinfo = self._resolve_timezone(
             context,
             self.timezone_var,

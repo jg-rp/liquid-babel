@@ -249,3 +249,13 @@ class DateTimeFilterTestCase(unittest.TestCase):
         template = env.from_string("{{ dt | datetime: }}")
         with self.assertRaises(FilterArgumentError):
             template.render(dt=object())
+
+    def test_filter_argument_priority(self) -> None:
+        """Test that the filter argument takes priority over render context."""
+        env = Environment()
+        env.add_filter("datetime", DateTime())
+        template = env.from_string(
+            "{{ 'Apr 1, 2007, 3:30:00 PM' | datetime: format: 'short' }}"
+        )
+        result = template.render(datetime_format="full")
+        self.assertEqual(result, "4/1/07, 3:30 PM")
