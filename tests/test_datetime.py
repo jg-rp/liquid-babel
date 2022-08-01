@@ -187,7 +187,7 @@ class DateTimeFilterTestCase(unittest.TestCase):
         env = Environment()
         env.add_filter("datetime", DateTime())
         template = env.from_string(
-            "{{ 'Apr 1, 2007, 3:30:00 PM BST' | datetime: format: 'short' }}"
+            "{{ 'Apr 1, 2007, 3:30:00 PM GMT-1' | datetime: format: 'short' }}"
         )
         result = template.render()
         self.assertEqual(result, "4/1/07, 2:30 PM")
