@@ -259,3 +259,19 @@ class DateTimeFilterTestCase(unittest.TestCase):
         )
         result = template.render(datetime_format="full")
         self.assertEqual(result, "4/1/07, 3:30 PM")
+
+    def test_string_representation_of_integer_input(self) -> None:
+        """Test that we handle unix timestamps given as a string."""
+        env = Environment()
+        env.add_filter("datetime", DateTime())
+        template = env.from_string("{{ dt | datetime: }}")
+        result = template.render(dt="1152098955")
+        self.assertEqual(result, "Jul 5, 2006, 11:29:15 AM")
+
+    def test_string_representation_of_float_input(self) -> None:
+        """Test that we handle unix timestamps given as a string."""
+        env = Environment()
+        env.add_filter("datetime", DateTime())
+        template = env.from_string("{{ dt | datetime: }}")
+        result = template.render(dt="1152098955.0")
+        self.assertEqual(result, "Jul 5, 2006, 11:29:15 AM")
