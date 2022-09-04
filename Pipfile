@@ -8,6 +8,7 @@ python-liquid = "*"
 babel = "*"
 pytz = "*"
 python-dateutil = "*"
+markupsafe = "*"
 
 [dev-packages]
 black = "*"
