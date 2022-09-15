@@ -4,26 +4,45 @@ import sys
 from gettext import NullTranslations
 
 from typing import Any
-from typing import cast
+from typing import Optional
+from typing import Tuple
 from typing import Type
 from typing import Union
 
 from liquid import Context
+from liquid import escape
+from liquid import Markup
+
+try:
+    from liquid import soft_str  # type: ignore
+except ImportError:
+    # pylint: disable=invalid-name
+    soft_str = str
+
+from liquid.expression import Filter
+from liquid.expression import StringLiteral
 
 from liquid.filter import string_filter
-from liquid.filter import with_context
+from liquid.filter import int_arg
 
-from markupsafe import escape
-from markupsafe import Markup
-
+from liquid_babel.messages.extract import MessageText
+from liquid_babel.messages.extract import TranslatableFilter
 
 PGETTEXT_AVAILABLE = sys.version_info[1] >= 3 and sys.version_info[1] > 8
 
+# TODO: `Translate` can be any one of the standard *gettext functions.
+# Write separate *gettext filters. Equivalent to jinja's new-style gettext
+# functions.
+
+# TODO: base translate filter
+
 
 # pylint: disable=too-few-public-methods
-@with_context
-class Translate:
-    """A Liquid filter for translating string to other languages.
+class Translate(TranslatableFilter):
+    """A Liquid filter for translating strings to other languages.
+
+    Depending on the keyword arguments provided when the resulting filter
+    is called, it could behave like gettext, ngettext, pgettext or npgettext.
 
     :param translations_var: The name of a render context variable that
         resolves to a gettext ``Translations`` class. Defaults to
@@ -42,6 +61,17 @@ class Translate:
         before translation. Defaults to ``False``.
     :type autoescape_message: bool
     """
+
+    keywords = {
+        "translate": None,
+        "t": None,
+        "gettext": None,
+        "ngettext": (1, 2),
+        "pgettext": ((1, "c"), 2),
+        "npgettext": ((1, "c"), 2, 3),
+    }
+
+    with_context = True
 
     def __init__(
         self,
@@ -65,7 +95,10 @@ class Translate:
         **kwargs: Any,
     ) -> str:
         auto_escape = context.env.autoescape
+        translations = self._resolve_translations(context)
 
+        # With Python 3.7, where pgettext is not available, the "context"
+        # argument will be ignored.
         message_context = kwargs.pop("context", None)
         plural = kwargs.pop("plural", None)
         n = _count(kwargs.get("count"))
@@ -74,14 +107,6 @@ class Translate:
             left = escape(left)
             if plural is not None:
                 plural = escape(plural)
-
-        translations = cast(
-            NullTranslations,
-            context.resolve(
-                self.translations_var,
-                default=self.default_translations,
-            ),
-        )
 
         if plural is not None and n is not None:
             if PGETTEXT_AVAILABLE and message_context is not None:
@@ -110,6 +135,181 @@ class Translate:
             text = text % kwargs
 
         return text
+
+    def message(self, _filter: Filter, lineno: int) -> Optional[MessageText]:
+        _message = _filter.args[0] if _filter.args else None
+
+        if not isinstance(_message, StringLiteral):
+            return None
+
+        _context = _filter.kwargs.get("context")
+        plural = _filter.kwargs.get("plural")
+
+        # Translate our filters into standard *gettext argument specs.
+
+        if isinstance(plural, StringLiteral):
+            funcname = "ngettext"
+            message: Tuple[str, ...] = (_message.value, plural.value)
+        else:
+            funcname = "gettext"
+            message = (_message.value,)
+
+        if isinstance(_context, StringLiteral):
+            funcname = "pgettext" if len(message) == 1 else "npgettext"
+            message = (_context.value,) + message
+
+        return MessageText(
+            lineno=lineno,
+            funcname=funcname,
+            message=message,
+        )
+
+    def _resolve_translations(self, context: Context) -> NullTranslations:
+        translations = context.resolve(self.translations_var)
+        if not isinstance(translations, NullTranslations):
+            return self.default_translations()
+        return translations
+
+
+class GetText(Translate):
+    """A Liquid filter equivalent of `gettext.gettext`."""
+
+    @string_filter
+    def __call__(
+        self,
+        left: str,
+        *,
+        context: Context,
+        **kwargs: Any,
+    ) -> str:
+        auto_escape = context.env.autoescape
+        translations = self._resolve_translations(context)
+
+        if auto_escape and self.autoescape_message:
+            left = escape(left)
+
+        text = translations.gettext(left)
+
+        if auto_escape:
+            text = Markup(text)
+
+        if self.c_style_interpolation:
+            text = text % kwargs
+
+        return text
+
+    def message(self, _filter: Filter, lineno: int) -> Optional[MessageText]:
+        if len(_filter.args) < 1:
+            return None
+
+        message = _filter.args[0]
+
+        if not isinstance(message, StringLiteral):
+            return None
+
+        return MessageText(
+            lineno=lineno,
+            funcname="gettext",
+            message=(message.value,),
+        )
+
+
+class NGetText(GetText):
+    """A Liquid filter equivalent of `gettext.ngettext`."""
+
+    @string_filter
+    def __call__(
+        self,
+        left: str,
+        plural: str,
+        count: object,
+        *,
+        context: Context,
+        **kwargs: Any,
+    ) -> str:
+        auto_escape = context.env.autoescape
+        translations = self._resolve_translations(context)
+        count = int_arg(count, default=1)
+
+        if auto_escape and self.autoescape_message:
+            left = escape(left)
+            plural = escape(plural)
+        else:
+            plural = soft_str(plural)
+
+        text = translations.ngettext(left, plural, count)
+
+        if auto_escape:
+            text = Markup(text)
+
+        if self.c_style_interpolation:
+            text = text % kwargs
+
+        return text
+
+    def message(self, _filter: Filter, lineno: int) -> Optional[MessageText]:
+        if len(_filter.args) < 3:
+            return None
+
+        message, plural, _ = _filter.args[:3]
+
+        if not isinstance(message, StringLiteral) or not isinstance(
+            plural, StringLiteral
+        ):
+            return None
+
+        return MessageText(
+            lineno=lineno,
+            funcname="ngettext",
+            message=(message.value, plural.value),
+        )
+
+
+class PGetText(Translate):
+    """A Liquid filter equivalent of `gettext.pgettext`."""
+
+    @string_filter
+    def __call__(
+        self,
+        left: str,
+        ctx: str,
+        *,
+        context: Context,
+        **kwargs: Any,
+    ) -> str:
+        auto_escape = context.env.autoescape
+        translations = self._resolve_translations(context)
+
+        if auto_escape and self.autoescape_message:
+            left = escape(left)
+            ctx = escape(ctx)
+        else:
+            ctx = soft_str(ctx)
+
+        text = translations.pgettext(ctx, left)
+
+        if auto_escape:
+            text = Markup(text)
+
+        if self.c_style_interpolation:
+            text = text % kwargs
+
+        return text
+
+    def message(self, _filter: Filter, lineno: int) -> Optional[MessageText]:
+        if len(_filter.args) < 2:
+            return None
+
+        message, ctx = _filter.args[:2]
+
+        if not isinstance(message, StringLiteral) or not isinstance(ctx, StringLiteral):
+            return None
+
+        return MessageText(
+            lineno=lineno,
+            funcname="pgettext",
+            message=(ctx.value, message.value),
+        )
 
 
 def _count(val: Any) -> Union[int, None]:
