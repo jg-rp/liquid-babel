@@ -1,6 +1,4 @@
 """A translation filter."""
-import sys
-
 from gettext import NullTranslations
 
 from typing import Any
@@ -26,11 +24,11 @@ from liquid.expression import StringLiteral
 from liquid.filter import string_filter
 from liquid.filter import int_arg
 
-from liquid_babel.messages.extract import MessageText
-from liquid_babel.messages.extract import TranslatableFilter
+from liquid_babel.messages.translations import MessageText
+from liquid_babel.messages.translations import TranslatableFilter
 from liquid_babel.messages.translations import Translations
 
-PGETTEXT_AVAILABLE = sys.version_info[1] >= 3 and sys.version_info[1] > 8
+PGETTEXT_AVAILABLE = hasattr(NullTranslations, "pgettext")
 
 
 # pylint: disable=too-few-public-methods
@@ -48,7 +46,7 @@ class Translate(TranslatableFilter):
         ``translations_var`` can not be resolves. Defaults to
         ``NullTranslations``.
     :type default_translations: NullTranslations
-    :param message_interpolation: If ``True`` (default), perform sprintf-style
+    :param message_interpolation: If ``True`` (default), perform printf-style
         string interpolation on the translated message, using keyword arguments
         passed to the filter function.
     :type message_interpolation: bool

@@ -1,17 +1,11 @@
 """Extract localization messages from Liquid templates."""
-from abc import ABC
-from abc import abstractmethod
-
 from typing import Any
 from typing import Dict
-from typing import Iterable
 from typing import Iterator
 from typing import List
-from typing import NamedTuple
 from typing import Optional
 from typing import TextIO
 from typing import Tuple
-from typing import Union
 
 from liquid import Environment
 from liquid import Template
@@ -26,42 +20,10 @@ from liquid.token import TOKEN_TAG
 from liquid.builtin.tags.comment_tag import CommentNode
 
 
-class MessageTuple(NamedTuple):
-    """The tuple expected to be returned from babel extraction methods."""
-
-    lineno: int
-    funcname: str
-    message: Union[str, Tuple[str, ...]]
-    comments: List[str]
-
-
-class MessageText(NamedTuple):
-    """Partial message tuple returned from translatable tags."""
-
-    lineno: int
-    funcname: str
-    message: Tuple[str, ...]
-
-
-class TranslatableTag(ABC):  # pylint: disable=too-few-public-methods
-    """Base class for translatable tags."""
-
-    @abstractmethod
-    def messages(self) -> Iterable[MessageText]:
-        """Generate a sequence of translation messages."""
-
-
-class TranslatableFilter(ABC):  # pylint: disable=too-few-public-methods
-    """Base class for translatable filters."""
-
-    @abstractmethod
-    def message(
-        self,
-        left: Expression,
-        _filter: Filter,
-        lineno: int,
-    ) -> Optional[MessageText]:
-        """Generate a sequence of translation messages."""
+from .translations import MessageText
+from .translations import MessageTuple
+from .translations import TranslatableFilter
+from .translations import TranslatableTag
 
 
 def extract_liquid(
