@@ -4,9 +4,9 @@ import sys
 from gettext import NullTranslations
 
 from typing import Any
+from typing import cast
 from typing import Optional
 from typing import Tuple
-from typing import Type
 from typing import Union
 
 from liquid import Context
@@ -19,6 +19,7 @@ except ImportError:
     # pylint: disable=invalid-name
     soft_str = str
 
+from liquid.expression import Expression
 from liquid.expression import Filter
 from liquid.expression import StringLiteral
 
@@ -27,14 +28,9 @@ from liquid.filter import int_arg
 
 from liquid_babel.messages.extract import MessageText
 from liquid_babel.messages.extract import TranslatableFilter
+from liquid_babel.messages.translations import Translations
 
 PGETTEXT_AVAILABLE = sys.version_info[1] >= 3 and sys.version_info[1] > 8
-
-# TODO: `Translate` can be any one of the standard *gettext functions.
-# Write separate *gettext filters. Equivalent to jinja's new-style gettext
-# functions.
-
-# TODO: base translate filter
 
 
 # pylint: disable=too-few-public-methods
@@ -52,10 +48,10 @@ class Translate(TranslatableFilter):
         ``translations_var`` can not be resolves. Defaults to
         ``NullTranslations``.
     :type default_translations: NullTranslations
-    :param c_style_interpolation: If ``True`` (default), perform c-style
+    :param message_interpolation: If ``True`` (default), perform sprintf-style
         string interpolation on the translated message, using keyword arguments
         passed to the filter function.
-    :type c_style_interpolation: bool
+    :type message_interpolation: bool
     :param autoescape_message: If `True` and the current environment has
         ``autoescape`` set to ``True``, the filter's left value will be escaped
         before translation. Defaults to ``False``.
@@ -77,13 +73,13 @@ class Translate(TranslatableFilter):
         self,
         *,
         translations_var: str = "translations",
-        default_translations: Type[NullTranslations] = NullTranslations,
-        c_style_interpolation: bool = True,
+        default_translations: Optional[Translations] = None,
+        message_interpolation: bool = True,
         autoescape_message: bool = False,
     ) -> None:
         self.translations_var = translations_var
-        self.default_translations = default_translations
-        self.c_style_interpolation = c_style_interpolation
+        self.default_translations = default_translations or NullTranslations()
+        self.message_interpolation = message_interpolation
         self.autoescape_message = autoescape_message
 
     @string_filter
@@ -131,15 +127,18 @@ class Translate(TranslatableFilter):
         if auto_escape:
             text = Markup(text)
 
-        if self.c_style_interpolation:
+        if self.message_interpolation:
             text = text % kwargs
 
         return text
 
-    def message(self, _filter: Filter, lineno: int) -> Optional[MessageText]:
-        _message = _filter.args[0] if _filter.args else None
-
-        if not isinstance(_message, StringLiteral):
+    def message(
+        self,
+        left: Expression,
+        _filter: Filter,
+        lineno: int,
+    ) -> Optional[MessageText]:
+        if not isinstance(left, StringLiteral):
             return None
 
         _context = _filter.kwargs.get("context")
@@ -149,10 +148,10 @@ class Translate(TranslatableFilter):
 
         if isinstance(plural, StringLiteral):
             funcname = "ngettext"
-            message: Tuple[str, ...] = (_message.value, plural.value)
+            message: Tuple[str, ...] = (left.value, plural.value)
         else:
             funcname = "gettext"
-            message = (_message.value,)
+            message = (left.value,)
 
         if isinstance(_context, StringLiteral):
             funcname = "pgettext" if len(message) == 1 else "npgettext"
@@ -164,11 +163,11 @@ class Translate(TranslatableFilter):
             message=message,
         )
 
-    def _resolve_translations(self, context: Context) -> NullTranslations:
-        translations = context.resolve(self.translations_var)
-        if not isinstance(translations, NullTranslations):
-            return self.default_translations()
-        return translations
+    def _resolve_translations(self, context: Context) -> Translations:
+        return cast(
+            Translations,
+            context.resolve(self.translations_var, self.default_translations),
+        )
 
 
 class GetText(Translate):
@@ -193,24 +192,24 @@ class GetText(Translate):
         if auto_escape:
             text = Markup(text)
 
-        if self.c_style_interpolation:
+        if self.message_interpolation:
             text = text % kwargs
 
         return text
 
-    def message(self, _filter: Filter, lineno: int) -> Optional[MessageText]:
-        if len(_filter.args) < 1:
-            return None
-
-        message = _filter.args[0]
-
-        if not isinstance(message, StringLiteral):
+    def message(
+        self,
+        left: Expression,
+        _filter: Filter,
+        lineno: int,
+    ) -> Optional[MessageText]:
+        if not isinstance(left, StringLiteral):
             return None
 
         return MessageText(
             lineno=lineno,
             funcname="gettext",
-            message=(message.value,),
+            message=(left.value,),
         )
 
 
@@ -242,26 +241,29 @@ class NGetText(GetText):
         if auto_escape:
             text = Markup(text)
 
-        if self.c_style_interpolation:
+        if self.message_interpolation:
             text = text % kwargs
 
         return text
 
-    def message(self, _filter: Filter, lineno: int) -> Optional[MessageText]:
-        if len(_filter.args) < 3:
+    def message(
+        self,
+        left: Expression,
+        _filter: Filter,
+        lineno: int,
+    ) -> Optional[MessageText]:
+        if len(_filter.args) < 1:
             return None
 
-        message, plural, _ = _filter.args[:3]
+        plural = _filter.args[0]
 
-        if not isinstance(message, StringLiteral) or not isinstance(
-            plural, StringLiteral
-        ):
+        if not isinstance(left, StringLiteral) or not isinstance(plural, StringLiteral):
             return None
 
         return MessageText(
             lineno=lineno,
             funcname="ngettext",
-            message=(message.value, plural.value),
+            message=(left.value, plural.value),
         )
 
 
@@ -291,24 +293,87 @@ class PGetText(Translate):
         if auto_escape:
             text = Markup(text)
 
-        if self.c_style_interpolation:
+        if self.message_interpolation:
             text = text % kwargs
 
         return text
 
-    def message(self, _filter: Filter, lineno: int) -> Optional[MessageText]:
-        if len(_filter.args) < 2:
+    def message(
+        self, left: Expression, _filter: Filter, lineno: int
+    ) -> Optional[MessageText]:
+        if len(_filter.args) < 1:
             return None
 
-        message, ctx = _filter.args[:2]
+        ctx = _filter.args[0]
 
-        if not isinstance(message, StringLiteral) or not isinstance(ctx, StringLiteral):
+        if not isinstance(left, StringLiteral) or not isinstance(ctx, StringLiteral):
             return None
 
         return MessageText(
             lineno=lineno,
             funcname="pgettext",
-            message=(ctx.value, message.value),
+            message=(ctx.value, left.value),
+        )
+
+
+class NPGetText(Translate):
+    """A Liquid filter equivalent of `gettext.npgettext`."""
+
+    @string_filter
+    def __call__(
+        self,
+        left: str,
+        ctx: str,
+        plural: str,
+        count: object,
+        *,
+        context: Context,
+        **kwargs: Any,
+    ) -> str:
+        auto_escape = context.env.autoescape
+        translations = self._resolve_translations(context)
+        count = int_arg(count, default=1)
+
+        if auto_escape and self.autoescape_message:
+            left = escape(left)
+            ctx = escape(ctx)
+            plural = escape(plural)
+        else:
+            ctx = soft_str(ctx)
+            plural = soft_str(plural)
+
+        text = translations.npgettext(ctx, left, plural, count)
+
+        if auto_escape:
+            text = Markup(text)
+
+        if self.message_interpolation:
+            text = text % kwargs
+
+        return text
+
+    def message(
+        self,
+        left: Expression,
+        _filter: Filter,
+        lineno: int,
+    ) -> Optional[MessageText]:
+        if len(_filter.args) < 2:
+            return None
+
+        ctx, plural = _filter.args[:2]
+
+        if (
+            not isinstance(left, StringLiteral)
+            or not isinstance(plural, StringLiteral)
+            or not isinstance(ctx, StringLiteral)
+        ):
+            return None
+
+        return MessageText(
+            lineno=lineno,
+            funcname="ngettext",
+            message=(ctx.value, left.value, plural.value),
         )
 
 

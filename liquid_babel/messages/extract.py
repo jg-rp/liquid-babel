@@ -55,7 +55,12 @@ class TranslatableFilter(ABC):  # pylint: disable=too-few-public-methods
     """Base class for translatable filters."""
 
     @abstractmethod
-    def message(self, _filter: Filter, lineno: int) -> Optional[MessageText]:
+    def message(
+        self,
+        left: Expression,
+        _filter: Filter,
+        lineno: int,
+    ) -> Optional[MessageText]:
         """Generate a sequence of translation messages."""
 
 
@@ -106,7 +111,11 @@ def extract_from_template(
     def visit_expression(expr: Expression, lineno: int) -> Iterator[MessageTuple]:
         if isinstance(expr, FilteredExpression):
             for _lineno, funcname, message in _extract_from_filters(
-                template.env, expr.filters, lineno, keywords
+                template.env,
+                expr.expression,
+                expr.filters,
+                lineno,
+                keywords,
             ):
                 if _comments and _comments[-1][0] < lineno - 1:
                     _comments.clear()
@@ -164,6 +173,7 @@ def extract_from_template(
 
 def _extract_from_filters(
     environment: Environment,
+    expression: Expression,
     filters: List[Filter],
     lineno: int,
     keywords: List[str],
@@ -172,4 +182,4 @@ def _extract_from_filters(
     for _filter in filters:
         filter_func = environment.filters.get(_filter.name)
         if _filter.name in keywords and isinstance(filter_func, TranslatableFilter):
-            yield filter_func.message(_filter, lineno)  # type: ignore
+            yield filter_func.message(expression, _filter, lineno)  # type: ignore
