@@ -101,6 +101,7 @@ def extract_from_template(
         if isinstance(node, CommentNode) and node.text is not None:
             comment_text = node.text.strip()
             for comment_tag in _comment_tags:
+                # TODO: strip comment tag from message comment?
                 if comment_text.startswith(comment_tag):
                     # Our multi-line comments are wrapped in a tag, so we're
                     # only ever going to have one comment text object to deal
@@ -147,4 +148,6 @@ def _extract_from_filters(
     for _filter in filters:
         filter_func = environment.filters.get(_filter.name)
         if _filter.name in keywords and isinstance(filter_func, TranslatableFilter):
-            yield filter_func.message(expression, _filter, lineno)  # type: ignore
+            message = filter_func.message(expression, _filter, lineno)  # type: ignore
+            if message:
+                yield message

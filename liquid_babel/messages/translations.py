@@ -33,7 +33,7 @@ class MessageTuple(NamedTuple):
 
     lineno: int
     funcname: str
-    message: Union[str, Tuple[str, ...]]
+    message: Union[str, Tuple[Union[str, Tuple[str, ...]], ...]]
     comments: List[str]
 
 
@@ -42,7 +42,7 @@ class MessageText(NamedTuple):
 
     lineno: int
     funcname: str
-    message: Tuple[str, ...]
+    message: Tuple[Union[str, Tuple[str, ...]], ...]
 
 
 class TranslatableTag(ABC):  # pylint: disable=too-few-public-methods

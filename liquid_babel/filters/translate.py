@@ -166,7 +166,11 @@ class Translate(TranslatableFilter):
 
         if isinstance(_context, StringLiteral):
             funcname = "pgettext" if len(message) == 1 else "npgettext"
-            message = (_context.value,) + message
+            return MessageText(
+                lineno=lineno,
+                funcname=funcname,
+                message=((_context.value, "c"),) + message,
+            )
 
         return MessageText(
             lineno=lineno,
@@ -329,7 +333,7 @@ class PGetText(Translate):
         return MessageText(
             lineno=lineno,
             funcname=self.name,
-            message=(ctx.value, left.value),
+            message=((ctx.value, "c"), left.value),
         )
 
 
@@ -392,7 +396,7 @@ class NPGetText(Translate):
         return MessageText(
             lineno=lineno,
             funcname=self.name,
-            message=(ctx.value, left.value, plural.value),
+            message=((ctx.value, "c"), left.value, plural.value),
         )
 
 
