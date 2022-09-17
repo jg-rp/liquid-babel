@@ -1,7 +1,7 @@
 from liquid.ast import Node
 from liquid.tag import Tag
 
-from liquid_babel.messages.extract import TranslatableTag
+from liquid_babel.messages.translations import TranslatableTag
 
 
 class TranslateTag(Tag):

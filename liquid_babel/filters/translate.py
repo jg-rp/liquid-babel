@@ -1,4 +1,4 @@
-"""A translation filter."""
+"""Translation filters."""
 from gettext import NullTranslations
 
 from typing import Any
@@ -8,6 +8,7 @@ from typing import Tuple
 from typing import Union
 
 from liquid import Context
+from liquid import Environment
 from liquid import escape
 from liquid import Markup
 
@@ -29,6 +30,25 @@ from liquid_babel.messages.translations import TranslatableFilter
 from liquid_babel.messages.translations import Translations
 
 PGETTEXT_AVAILABLE = hasattr(NullTranslations, "pgettext")
+
+__all__ = [
+    "DEFAULT_KEYWORDS",
+    "Translate",
+    "GetText",
+    "NGetText",
+    "PGetText",
+    "NPGetText",
+    "register_translation_filters",
+]
+
+DEFAULT_KEYWORDS = {
+    "translate": None,
+    "t": None,
+    "gettext": None,
+    "ngettext": (1, 2),
+    "pgettext": ((1, "c"), 2),
+    "npgettext": ((1, "c"), 2, 3),
+}
 
 
 # pylint: disable=too-few-public-methods
@@ -56,15 +76,8 @@ class Translate(TranslatableFilter):
     :type autoescape_message: bool
     """
 
-    keywords = {
-        "translate": None,
-        "t": None,
-        "gettext": None,
-        "ngettext": (1, 2),
-        "pgettext": ((1, "c"), 2),
-        "npgettext": ((1, "c"), 2, 3),
-    }
-
+    keywords = DEFAULT_KEYWORDS
+    name = "t"
     with_context = True
 
     def __init__(
@@ -171,6 +184,8 @@ class Translate(TranslatableFilter):
 class GetText(Translate):
     """A Liquid filter equivalent of `gettext.gettext`."""
 
+    name = "gettext"
+
     @string_filter
     def __call__(
         self,
@@ -206,13 +221,15 @@ class GetText(Translate):
 
         return MessageText(
             lineno=lineno,
-            funcname="gettext",
+            funcname=self.name,
             message=(left.value,),
         )
 
 
 class NGetText(GetText):
     """A Liquid filter equivalent of `gettext.ngettext`."""
+
+    name = "ngettext"
 
     @string_filter
     def __call__(
@@ -260,13 +277,15 @@ class NGetText(GetText):
 
         return MessageText(
             lineno=lineno,
-            funcname="ngettext",
+            funcname=self.name,
             message=(left.value, plural.value),
         )
 
 
 class PGetText(Translate):
     """A Liquid filter equivalent of `gettext.pgettext`."""
+
+    name = "pgettext"
 
     @string_filter
     def __call__(
@@ -309,13 +328,15 @@ class PGetText(Translate):
 
         return MessageText(
             lineno=lineno,
-            funcname="pgettext",
+            funcname=self.name,
             message=(ctx.value, left.value),
         )
 
 
 class NPGetText(Translate):
     """A Liquid filter equivalent of `gettext.npgettext`."""
+
+    name = "npgettext"
 
     @string_filter
     def __call__(
@@ -370,7 +391,7 @@ class NPGetText(Translate):
 
         return MessageText(
             lineno=lineno,
-            funcname="ngettext",
+            funcname=self.name,
             message=(ctx.value, left.value, plural.value),
         )
 
@@ -382,3 +403,50 @@ def _count(val: Any) -> Union[int, None]:
         return int(val)
     except ValueError:
         return None
+
+
+def register_translation_filters(
+    env: Environment,
+    replace: bool = False,
+    *,
+    translations_var: str = "translations",
+    default_translations: Optional[Translations] = None,
+    message_interpolation: bool = True,
+    autoescape_message: bool = False,
+) -> None:
+    """Add gettext-style translation filters to a Liquid environment.
+
+    :param env: The liquid.Environment to add translation filters to.
+    :type env: liquid.Environment.
+    :param replace: If True, existing filters with conflicting names will
+        be replaced. Defaults to False.
+    :type replace: bool
+    :param translations_var: The name of a render context variable that
+        resolves to a gettext ``Translations`` class. Defaults to
+        ``"translations"``.
+    :type translations_var: str
+    :param default_translations: A fallback translations class to use if
+        ``translations_var`` can not be resolves. Defaults to
+        ``NullTranslations``.
+    :type default_translations: NullTranslations
+    :param message_interpolation: If ``True`` (default), perform printf-style
+        string interpolation on the translated message, using keyword arguments
+        passed to the filter function.
+    :type message_interpolation: bool
+    :param autoescape_message: If `True` and the current environment has
+        ``autoescape`` set to ``True``, the filter's left value will be escaped
+        before translation. Defaults to ``False``.
+    :type autoescape_message: bool
+    """
+    default_translations = default_translations or NullTranslations()
+    for _filter in (Translate, GetText, NGetText, PGetText, NPGetText):
+        if replace or _filter.name not in env.filters:
+            env.add_filter(
+                _filter.name,
+                _filter(
+                    translations_var=translations_var,
+                    default_translations=default_translations,
+                    message_interpolation=message_interpolation,
+                    autoescape_message=autoescape_message,
+                ),
+            )

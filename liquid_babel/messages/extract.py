@@ -6,6 +6,7 @@ from typing import List
 from typing import Optional
 from typing import TextIO
 from typing import Tuple
+from typing import Union
 
 from liquid import Environment
 from liquid import Template
@@ -19,6 +20,8 @@ from liquid.template import BoundTemplate
 from liquid.token import TOKEN_TAG
 from liquid.builtin.tags.comment_tag import CommentNode
 
+from liquid_babel.filters.translate import DEFAULT_KEYWORDS
+from liquid_babel.filters.translate import register_translation_filters
 
 from .translations import MessageText
 from .translations import MessageTuple
@@ -52,7 +55,7 @@ def extract_liquid(
     environment.
     """
     template = Template(fileobj.read(), **options or {})
-    # TODO: register default translation filter funcs
+    register_translation_filters(template.env, replace=False)
     return extract_from_template(
         template=template,
         keywords=keywords,
@@ -62,13 +65,13 @@ def extract_liquid(
 
 def extract_from_template(
     template: BoundTemplate,
-    keywords: List[str],
+    keywords: Union[List[str], Dict[str, Any], None] = None,
     comment_tags: Optional[List[str]] = None,
 ) -> Iterator[MessageTuple]:
-    """"""
-
+    """Extract translation messages from a Liquid template."""
     _comment_tags = comment_tags or []
     _comments: List[Tuple[int, str]] = []
+    _keywords = keywords or DEFAULT_KEYWORDS
 
     def visit_expression(expr: Expression, lineno: int) -> Iterator[MessageTuple]:
         if isinstance(expr, FilteredExpression):
@@ -77,7 +80,7 @@ def extract_from_template(
                 expr.expression,
                 expr.filters,
                 lineno,
-                keywords,
+                _keywords,
             ):
                 if _comments and _comments[-1][0] < lineno - 1:
                     _comments.clear()
@@ -107,7 +110,7 @@ def extract_from_template(
                     break
         elif (
             token.type == TOKEN_TAG
-            and token.value in keywords
+            and token.value in _keywords
             and isinstance(node, TranslatableTag)
         ):
 
@@ -138,7 +141,7 @@ def _extract_from_filters(
     expression: Expression,
     filters: List[Filter],
     lineno: int,
-    keywords: List[str],
+    keywords: Union[List[str], Dict[str, Any]],
 ) -> Iterator[MessageText]:
     """"""
     for _filter in filters:
