@@ -261,6 +261,7 @@ class NGetText(GetText):
             text = Markup(text)
 
         if self.message_interpolation:
+            # TODO: try
             text = text % kwargs
 
         return text
