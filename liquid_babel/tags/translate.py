@@ -1,6 +1,8 @@
+"""Tag and node definition for the "trans" or "translate" tag."""
 from __future__ import annotations
 
 import itertools
+import re
 import sys
 
 from functools import partial
@@ -21,8 +23,14 @@ from liquid.ast import ChildNode
 from liquid.ast import Node
 from liquid.ast import BlockNode
 
-from liquid.context import Context
-from liquid.expression import Expression
+from liquid.builtin.literal import LiteralNode
+from liquid.builtin.statement import StatementNode
+
+from liquid.expression import FilteredExpression
+from liquid.expression import Identifier
+from liquid.expression import IdentifierPathElement
+from liquid.expression import StringLiteral
+
 from liquid.limits import to_int
 
 from liquid.lex import include_expression_rules
@@ -50,6 +58,7 @@ from liquid.token import TOKEN_EOF
 from liquid.token import TOKEN_COMMA
 
 from liquid_babel.messages.exceptions import TranslationKeyError
+from liquid_babel.messages.exceptions import TranslationSyntaxError
 from liquid_babel.messages.exceptions import TranslationValueError
 
 from liquid_babel.messages.translations import MessageText
@@ -57,8 +66,9 @@ from liquid_babel.messages.translations import TranslatableTag
 from liquid_babel.messages.translations import Translations
 
 if TYPE_CHECKING:  # pragma: no cover
-    # TODO: move more imports here
+    from liquid.context import Context
     from liquid import Environment
+    from liquid.expression import Expression
 
 
 TAG_TRANS = sys.intern("trans")
@@ -103,7 +113,8 @@ class TranslateTag(Tag):
     name = TAG_TRANS
     end = TAG_ENDTRANS
     plural_name = TAG_PLURAL
-    end_block = frozenset((end, plural_name))
+    re_whitespace = re.compile(r"\s*\n\s*")
+    trim_messages = True
 
     def __init__(self, env: Environment):
         super().__init__(env)
@@ -126,7 +137,7 @@ class TranslateTag(Tag):
                 expr_stream.next_token()  # Eat comma
 
         stream.next_token()
-        message_block = self.parser.parse_block(stream, self.end_block)
+        message_block = self.parser.parse_block(stream, (self.end, self.plural_name))
         singular = self.parse_message_block(message_block)
 
         if (
@@ -162,9 +173,45 @@ class TranslateTag(Tag):
         return TransKeywordArg(key, val)
 
     def parse_message_block(self, block: BlockNode) -> MessageBlock:
-        # TODO: Raise or warn on all but output statements and literal text
-        # TODO: Raise or warn on output with filters
-        pass
+        """Return message text and variables from a translation block."""
+        message_text: List[str] = []
+        message_vars: List[str] = []
+        for node in block.statements:
+            if isinstance(node, LiteralNode):
+                message_text.append(node.tok.value.replace("%", "%%"))
+            elif isinstance(node, StatementNode):
+                if (
+                    isinstance(node.expression, FilteredExpression)
+                    and isinstance(node.expression.expression, Identifier)
+                    and isinstance(
+                        node.expression.expression.path[0], IdentifierPathElement
+                    )
+                    and isinstance(node.expression.expression.path[0].value, str)
+                ):
+                    var = node.expression.expression.path[0].value
+                    if node.expression.filters:
+                        raise TranslationSyntaxError(
+                            f"unexpected filter on translation variable '{var}'",
+                            linenum=node.token().linenum,
+                        )
+                    message_text.append(f"%({var})s")
+                    message_vars.append(var)
+                else:
+                    raise TranslationSyntaxError(
+                        f"expected a translation variable, found '{node.expression}'",
+                        linenum=node.token().linenum,
+                    )
+            else:
+                raise TranslationSyntaxError(
+                    f"unexpected tag '{node.token().type}' in translation text",
+                    linenum=node.token().linenum,
+                )
+
+        msg = "".join(message_text)
+        if self.trim_messages:
+            msg = self.re_whitespace.sub(" ", msg.strip())
+
+        return MessageBlock(block, msg, message_vars)
 
 
 class TranslateNode(Node, TranslatableTag):
@@ -197,7 +244,11 @@ class TranslateNode(Node, TranslatableTag):
         self.singular_block, self.singular, self.singular_vars = singular
         self.plural = plural
 
-    def render_to_output(self, context: Context, buffer: TextIO) -> Optional[bool]:
+    def render_to_output(
+        self,
+        context: Context,
+        buffer: TextIO,
+    ) -> Optional[bool]:
         translations = self.resolve_translations(context)
         namespace = {k: v.evaluate(context) for k, v in self.args.items()}
         count = self.resolve_count(context, namespace)
@@ -214,7 +265,26 @@ class TranslateNode(Node, TranslatableTag):
         buffer.write(self.format_message(message_text, message_vars))
         return True
 
-    # TODO: async
+    async def render_to_output_async(
+        self,
+        context: Context,
+        buffer: TextIO,
+    ) -> Optional[bool]:
+        translations = self.resolve_translations(context)
+        namespace = {k: await v.evaluate_async(context) for k, v in self.args.items()}
+        count = self.resolve_count(context, namespace)
+        message_context = self.resolve_message_context(context, namespace)
+
+        with context.extend(namespace):
+            message_text, _vars = self.gettext(
+                translations,
+                count=count,
+                message_context=message_context,
+            )
+            message_vars = {v: context.resolve(v) for v in _vars}
+
+        buffer.write(self.format_message(message_text, message_vars))
+        return True
 
     def resolve_translations(self, context: Context) -> Translations:
         """Return a translations object from the current render context."""
@@ -314,4 +384,24 @@ class TranslateNode(Node, TranslatableTag):
         return children
 
     def messages(self) -> Iterable[MessageText]:
-        return super().messages()
+        if self.plural:
+            funcname = "ngettext"
+            message: Tuple[str, ...] = (self.singular, self.plural.text)
+        else:
+            funcname = "gettext"
+            message = (self.singular,)
+
+        message_context = self.args.get(self.message_context_var)
+        if isinstance(message_context, StringLiteral):
+            funcname = "pgettext" if len(message) == 1 else "npgettext"
+            yield MessageText(
+                lineno=self.tok.linenum,
+                funcname=funcname,
+                message=((message_context.value, "c"),) + message,
+            )
+
+        yield MessageText(
+            lineno=self.tok.linenum,
+            funcname=funcname,
+            message=message,
+        )

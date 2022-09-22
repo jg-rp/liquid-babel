@@ -3,6 +3,7 @@ from gettext import NullTranslations
 
 from typing import Any
 from typing import cast
+from typing import Dict
 from typing import Optional
 from typing import Tuple
 from typing import Union
@@ -25,6 +26,10 @@ from liquid.expression import StringLiteral
 from liquid.filter import string_filter
 from liquid.filter import int_arg
 
+from liquid_babel.messages.exceptions import TranslationKeyError
+from liquid_babel.messages.exceptions import TranslationValueError
+
+from liquid_babel.messages.translations import DEFAULT_KEYWORDS
 from liquid_babel.messages.translations import MessageText
 from liquid_babel.messages.translations import TranslatableFilter
 from liquid_babel.messages.translations import Translations
@@ -32,7 +37,6 @@ from liquid_babel.messages.translations import Translations
 PGETTEXT_AVAILABLE = hasattr(NullTranslations, "pgettext")
 
 __all__ = [
-    "DEFAULT_KEYWORDS",
     "Translate",
     "GetText",
     "NGetText",
@@ -40,15 +44,6 @@ __all__ = [
     "NPGetText",
     "register_translation_filters",
 ]
-
-DEFAULT_KEYWORDS = {
-    "translate": None,
-    "t": None,
-    "gettext": None,
-    "ngettext": (1, 2),
-    "pgettext": ((1, "c"), 2),
-    "npgettext": ((1, "c"), 2, 3),
-}
 
 
 # pylint: disable=too-few-public-methods
@@ -139,7 +134,7 @@ class Translate(TranslatableFilter):
             text = Markup(text)
 
         if self.message_interpolation:
-            text = text % kwargs
+            text = self.format_message(text, kwargs)
 
         return text
 
@@ -178,6 +173,19 @@ class Translate(TranslatableFilter):
             message=message,
         )
 
+    def format_message(self, message_text: str, message_vars: Dict[str, Any]) -> str:
+        """Return the message string formatted with the given message variables."""
+        try:
+            return message_text % message_vars
+        except KeyError as err:
+            raise TranslationKeyError(
+                f"can't format translation message text using {message_vars!r}"
+            ) from err
+        except ValueError as err:
+            raise TranslationValueError(
+                f"can't format translation message text using {message_vars!r}"
+            ) from err
+
     def _resolve_translations(self, context: Context) -> Translations:
         return cast(
             Translations,
@@ -210,7 +218,7 @@ class GetText(Translate):
             text = Markup(text)
 
         if self.message_interpolation:
-            text = text % kwargs
+            text = self.format_message(text, kwargs)
 
         return text
 
@@ -261,8 +269,7 @@ class NGetText(GetText):
             text = Markup(text)
 
         if self.message_interpolation:
-            # TODO: try
-            text = text % kwargs
+            text = self.format_message(text, kwargs)
 
         return text
 
@@ -316,7 +323,7 @@ class PGetText(Translate):
             text = Markup(text)
 
         if self.message_interpolation:
-            text = text % kwargs
+            text = self.format_message(text, kwargs)
 
         return text
 
@@ -372,7 +379,7 @@ class NPGetText(Translate):
             text = Markup(text)
 
         if self.message_interpolation:
-            text = text % kwargs
+            text = self.format_message(text, kwargs)
 
         return text
 

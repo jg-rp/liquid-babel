@@ -1,3 +1,4 @@
+"""Translation related objects used by filters, tags and extraction functions."""
 from abc import ABC
 from abc import abstractmethod
 
@@ -13,18 +14,42 @@ from typing_extensions import Protocol
 from liquid.expression import Expression
 from liquid.expression import Filter
 
+DEFAULT_KEYWORDS = {
+    "t": None,
+    "trans": None,
+    "translate": None,
+    "gettext": None,
+    "ngettext": (1, 2),
+    "pgettext": ((1, "c"), 2),
+    "npgettext": ((1, "c"), 2, 3),
+}
+
+# pylint: disable=unnecessary-ellipsis
+
 
 class Translations(Protocol):
+    """The object expected to be available in a render context for
+    translating message text.
+
+    Could be a `GNUTranslations` instance from the `gettext` module,
+    a Babel `Translations` object, or any object implementing `gettext`,
+    `ngettext`, `pgettext` and `npgettext` methods.
+    """
+
     def gettext(self, message: str) -> str:
+        """Lookup the message in the catalog."""
         ...
 
     def ngettext(self, singular: str, plural: str, n: int) -> str:
+        """Do plural-forms message lookup."""
         ...
 
     def pgettext(self, context: str, message: str) -> str:
+        """Lookup the context and message in the catalog."""
         ...
 
     def npgettext(self, context: str, singular: str, plural: str, n: int) -> str:
+        """Do plural-forms context and message lookup."""
         ...
 
 

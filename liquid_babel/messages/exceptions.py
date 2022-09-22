@@ -1,9 +1,14 @@
 """Liquid translation exceptions."""
 from liquid.exceptions import Error
+from liquid.exceptions import LiquidSyntaxError
 
 
 class TranslationError(Error):
     """Base exception for translation errors."""
+
+
+class TranslationSyntaxError(LiquidSyntaxError):
+    """Exception raised when a syntax error is found within a translation block."""
 
 
 class TranslationValueError(TranslationError):
