@@ -229,7 +229,7 @@ class TranslateNode(Node, TranslatableTag):
         "plural",
     )
 
-    default_translations = NullTranslations
+    default_translations = NullTranslations()
     translations_var = "translations"
     message_count_var = "count"
     message_context_var = "context"
@@ -315,7 +315,7 @@ class TranslateNode(Node, TranslatableTag):
     ) -> Optional[str]:
         """Return the message context string, if any, using the current render
         context and/or the translation block scope."""
-        message_context = block_scope.pop(self.message_context_var)
+        message_context = block_scope.pop(self.message_context_var, None)
         if message_context:
             return (
                 str(message_context)

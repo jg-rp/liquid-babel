@@ -6,6 +6,7 @@ import unittest
 from typing import List
 
 from liquid import Environment
+from liquid import Markup
 
 from liquid_babel.filters.translate import PGETTEXT_AVAILABLE
 from liquid_babel.filters.translate import register_translation_filters
@@ -45,7 +46,7 @@ class MockTranslations:
             start = match.end()
 
         parts.append(message[start:].upper())
-        return "".join(parts)
+        return Markup("").join(parts)
 
 
 MOCK_TRANSLATIONS = MockTranslations()
@@ -203,8 +204,108 @@ class TranslateMessagesTestCase(unittest.TestCase):
         result = template.render(translations=MOCK_TRANSLATIONS)
         self.assertEqual(result, "greeting::HELLO, WorldS!")
 
+    def test_translate_tag_gettext(self) -> None:
+        """Test that we can do gettext with the translate tag."""
+        source = """
+            {%- translate you: 'World', there: false -%}
+                Hello, {{ you }}!
+            {%- endtranslate -%}
+        """
+        template = self.env.from_string(source)
 
-# TODO: test turn off filter message interpolation
-# TODO: test plural is converted to a string
-# TODO: test ngettext count can be a string
-# TODO: test autoescape
+        # Default, null translation
+        result = template.render()
+        self.assertEqual(result, "Hello, World!")
+
+        # Mock translation
+        result = template.render(translations=MOCK_TRANSLATIONS)
+        self.assertEqual(result, "HELLO, World!")
+
+    def test_translate_tag_ngettext(self) -> None:
+        """Test that we can do ngettext with the translate tag."""
+        source = """
+            {%- translate you: 'World', count: 2 -%}
+                Hello, {{ you }}!
+            {%- plural -%}
+                Hello, {{ you }}s!
+            {%- endtranslate -%}
+        """
+        template = self.env.from_string(source)
+
+        # Default, null translation
+        result = template.render()
+        self.assertEqual(result, "Hello, Worlds!")
+
+        # Mock translation
+        result = template.render(translations=MOCK_TRANSLATIONS)
+        self.assertEqual(result, "HELLO, WorldS!")
+
+
+class AutoEscapeMessagesTestCase(unittest.TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.env = Environment(autoescape=True)
+        register_translation_filters(self.env, autoescape_message=True)
+        self.env.add_tag(TranslateTag)
+
+    def test_t_filter_auto_escape(self) -> None:
+        """Test that the t filter can escape messages."""
+        source = "{{ s | t }}"
+        template = self.env.from_string(source)
+
+        # Default, null translation
+        result = template.render(s="<b>Hello, World!</b>")
+        self.assertEqual(result, "&lt;b&gt;Hello, World!&lt;/b&gt;")
+
+        # Mock translation
+        result = template.render(
+            s="<b>Hello, World!</b>", translations=MOCK_TRANSLATIONS
+        )
+        self.assertEqual(result, "&LT;B&GT;HELLO, WORLD!&LT;/B&GT;")
+
+    def test_ngettext_filter_auto_escape(self) -> None:
+        """Test that the ngettext filter can escape messages."""
+        source = "{{ s | ngettext: 'Hello, Worlds!', 1 }}"
+        template = self.env.from_string(source)
+
+        # Default, null translation
+        result = template.render(s="<b>Hello, World!</b>")
+        self.assertEqual(result, "&lt;b&gt;Hello, World!&lt;/b&gt;")
+
+        # Mock translation
+        result = template.render(
+            s="<b>Hello, World!</b>", translations=MOCK_TRANSLATIONS
+        )
+        self.assertEqual(result, "&LT;B&GT;HELLO, WORLD!&LT;/B&GT;")
+
+    @unittest.skipUnless(PGETTEXT_AVAILABLE, "pgettext was new in python 3.8")
+    def test_pgettext_filter_auto_escape(self) -> None:
+        """Test that the pgettext filter can escape messages."""
+        source = "{{ s | pgettext: 'greeting'}}"
+        template = self.env.from_string(source)
+
+        # Default, null translation
+        result = template.render(s="<b>Hello, World!</b>")
+        self.assertEqual(result, "&lt;b&gt;Hello, World!&lt;/b&gt;")
+
+        # Mock translation
+        result = template.render(
+            s="<b>Hello, World!</b>", translations=MOCK_TRANSLATIONS
+        )
+        self.assertEqual(result, "greeting::&LT;B&GT;HELLO, WORLD!&LT;/B&GT;")
+
+    @unittest.skipUnless(PGETTEXT_AVAILABLE, "pgettext was new in python 3.8")
+    def test_npgettext_filter_auto_escape(self) -> None:
+        """Test that the npgettext filter can escape messages."""
+        source = "{{ s | npgettext: 'greeting', 'Hello, Worlds!', 1 }}"
+        template = self.env.from_string(source)
+
+        # Default, null translation
+        result = template.render(s="<b>Hello, World!</b>")
+        self.assertEqual(result, "&lt;b&gt;Hello, World!&lt;/b&gt;")
+
+        # Mock translation
+        result = template.render(
+            s="<b>Hello, World!</b>", translations=MOCK_TRANSLATIONS
+        )
+        self.assertEqual(result, "greeting::&LT;B&GT;HELLO, WORLD!&LT;/B&GT;")

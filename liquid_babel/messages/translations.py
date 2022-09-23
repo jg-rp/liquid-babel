@@ -24,8 +24,6 @@ DEFAULT_KEYWORDS = {
     "npgettext": ((1, "c"), 2, 3),
 }
 
-# pylint: disable=unnecessary-ellipsis
-
 
 class Translations(Protocol):
     """The object expected to be available in a render context for
@@ -38,19 +36,15 @@ class Translations(Protocol):
 
     def gettext(self, message: str) -> str:
         """Lookup the message in the catalog."""
-        ...
 
     def ngettext(self, singular: str, plural: str, n: int) -> str:
         """Do plural-forms message lookup."""
-        ...
 
     def pgettext(self, context: str, message: str) -> str:
         """Lookup the context and message in the catalog."""
-        ...
 
     def npgettext(self, context: str, singular: str, plural: str, n: int) -> str:
         """Do plural-forms context and message lookup."""
-        ...
 
 
 class MessageTuple(NamedTuple):

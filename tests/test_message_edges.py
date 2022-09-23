@@ -69,7 +69,3 @@ class MessagesEdgeTestCase(unittest.TestCase):
         source = "{{ 'Hello, World!' | t: plural: 'Hello, Worlds!', count:'foo' }}"
         template = self.env.from_string(source)
         self.assertEqual(template.render(), "Hello, World!")
-
-
-# TODO: test chained message variables fail
-# TODO: test filtered message variables fail

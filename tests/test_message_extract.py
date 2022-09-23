@@ -460,3 +460,65 @@ class ExtractFromTemplateTestCase(unittest.TestCase):
         self.assertEqual(message.funcname, "gettext")
         self.assertEqual(message.message, ("Hello, %(you)s!",))
         self.assertEqual(message.comments, [])
+
+    def test_translate_tag_with_comment(self) -> None:
+        """Test that the `translate` tag can include a comment."""
+        source = (
+            "{% comment %}Translators: greeting{% endcomment %}\n"
+            "{% translate %}Hello, World!{% endtranslate %}"
+        )
+
+        template = self.env.from_string(source)
+        messages = list(
+            extract_from_template(
+                template,
+                comment_tags=["Translators:"],
+            )
+        )
+
+        self.assertEqual(len(messages), 1)
+        message = messages[0]
+
+        self.assertEqual(message.lineno, 2)
+        self.assertEqual(message.funcname, "gettext")
+        self.assertEqual(message.message, ("Hello, World!",))
+        self.assertEqual(message.comments, ["Translators: greeting"])
+
+    def test_message_not_string_literal(self) -> None:
+        """Test messages that are not string literals are ignored."""
+        source = (
+            "{{ some | t }}\n"
+            "{{ some | gettext }}\n"
+            "{{ some | ngettext: thing, 5 }}\n"
+            "{{ some | pgettext: other }}\n"
+            "{{ some | npgettext: other, thing, 5 }}\n"
+        )
+
+        template = self.env.from_string(source)
+        messages = list(extract_from_template(template))
+
+        self.assertEqual(len(messages), 0)
+
+    def test_ignore_past_comments(self) -> None:
+        """Test that comments not immediately preceding are ignored."""
+        source = (
+            "{% comment %}Translators: something{% endcomment %}\n"
+            "something\n"
+            "{% translate %}Hello, World!{% endtranslate %}"
+        )
+
+        template = self.env.from_string(source)
+        messages = list(
+            extract_from_template(
+                template,
+                comment_tags=["Translators:"],
+            )
+        )
+
+        self.assertEqual(len(messages), 1)
+        message = messages[0]
+
+        self.assertEqual(message.lineno, 3)
+        self.assertEqual(message.funcname, "gettext")
+        self.assertEqual(message.message, ("Hello, World!",))
+        self.assertEqual(message.comments, [])
