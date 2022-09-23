@@ -19,6 +19,8 @@ from typing import Optional
 from typing import TextIO
 from typing import Tuple
 
+from liquid import Markup
+
 from liquid.ast import ChildNode
 from liquid.ast import Node
 from liquid.ast import BlockNode
@@ -71,8 +73,8 @@ if TYPE_CHECKING:  # pragma: no cover
     from liquid.expression import Expression
 
 
-TAG_TRANS = sys.intern("trans")
-TAG_ENDTRANS = sys.intern("endtrans")
+TAG_TRANS = sys.intern("translate")
+TAG_ENDTRANS = sys.intern("endtranslate")
 TAG_PLURAL = sys.intern("plural")
 
 trans_expression_keywords = frozenset(
@@ -112,6 +114,7 @@ class TranslateTag(Tag):
 
     name = TAG_TRANS
     end = TAG_ENDTRANS
+    block = True
     plural_name = TAG_PLURAL
     re_whitespace = re.compile(r"\s*\n\s*")
     trim_messages = True
@@ -123,20 +126,20 @@ class TranslateTag(Tag):
     def parse(self, stream: TokenStream) -> TranslateNode:
         expect(stream, TOKEN_TAG, value=self.name)
         tok = stream.current
-
         stream.next_token()
-        expect(stream, TOKEN_EXPRESSION)
-        expr_stream = TokenStream(tokenize_trans_expression(stream.current.value))
         args = {}
 
-        while expr_stream.current.type != TOKEN_EOF:
-            key, expr = self.parse_argument(expr_stream)
-            args[key] = expr
+        if stream.current.type == TOKEN_EXPRESSION:
+            expr_stream = TokenStream(tokenize_trans_expression(stream.current.value))
+            while expr_stream.current.type != TOKEN_EOF:
+                key, expr = self.parse_argument(expr_stream)
+                args[key] = expr
 
-            if expr_stream.current.type == TOKEN_COMMA:
-                expr_stream.next_token()  # Eat comma
+                if expr_stream.current.type == TOKEN_COMMA:
+                    expr_stream.next_token()  # Eat comma
 
-        stream.next_token()
+            stream.next_token()
+
         message_block = self.parser.parse_block(stream, (self.end, self.plural_name))
         singular = self.parse_message_block(message_block)
 
@@ -262,7 +265,7 @@ class TranslateNode(Node, TranslatableTag):
             )
             message_vars = {v: context.resolve(v) for v in _vars}
 
-        buffer.write(self.format_message(message_text, message_vars))
+        buffer.write(self.format_message(context, message_text, message_vars))
         return True
 
     async def render_to_output_async(
@@ -283,7 +286,7 @@ class TranslateNode(Node, TranslatableTag):
             )
             message_vars = {v: context.resolve(v) for v in _vars}
 
-        buffer.write(self.format_message(message_text, message_vars))
+        buffer.write(self.format_message(context, message_text, message_vars))
         return True
 
     def resolve_translations(self, context: Context) -> Translations:
@@ -343,8 +346,15 @@ class TranslateNode(Node, TranslatableTag):
             text = translations.gettext(self.singular)
         return text, self.singular_vars
 
-    def format_message(self, message_text: str, message_vars: Dict[str, Any]) -> str:
+    def format_message(
+        self,
+        context: Context,
+        message_text: str,
+        message_vars: Dict[str, Any],
+    ) -> str:
         """Return the message string formatted with the given message variables."""
+        if context.env.autoescape:
+            message_text = Markup(message_text)
         try:
             return message_text % message_vars
         except KeyError as err:
@@ -384,6 +394,9 @@ class TranslateNode(Node, TranslatableTag):
         return children
 
     def messages(self) -> Iterable[MessageText]:
+        if not self.singular:
+            return ()
+
         if self.plural:
             funcname = "ngettext"
             message: Tuple[str, ...] = (self.singular, self.plural.text)
@@ -394,14 +407,18 @@ class TranslateNode(Node, TranslatableTag):
         message_context = self.args.get(self.message_context_var)
         if isinstance(message_context, StringLiteral):
             funcname = "pgettext" if len(message) == 1 else "npgettext"
-            yield MessageText(
-                lineno=self.tok.linenum,
-                funcname=funcname,
-                message=((message_context.value, "c"),) + message,
+            return (
+                MessageText(
+                    lineno=self.tok.linenum,
+                    funcname=funcname,
+                    message=((message_context.value, "c"),) + message,
+                ),
             )
 
-        yield MessageText(
-            lineno=self.tok.linenum,
-            funcname=funcname,
-            message=message,
+        return (
+            MessageText(
+                lineno=self.tok.linenum,
+                funcname=funcname,
+                message=message,
+            ),
         )

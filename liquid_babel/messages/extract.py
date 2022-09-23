@@ -157,4 +157,4 @@ def _register_translation_tag(env: Environment, keywords: List[str]) -> None:
     for funcname in keywords:
         if isinstance(env.tags.get(funcname), TranslatableTag):
             return
-    env.add_filter("trans", TranslateTag)
+    env.add_tag(TranslateTag)

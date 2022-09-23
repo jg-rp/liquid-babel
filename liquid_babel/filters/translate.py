@@ -1,4 +1,9 @@
 """Translation filters."""
+import re
+
+from abc import ABC
+from abc import abstractmethod
+
 from gettext import NullTranslations
 
 from typing import Any
@@ -6,6 +11,7 @@ from typing import cast
 from typing import Dict
 from typing import Optional
 from typing import Tuple
+from typing import Type
 from typing import Union
 
 from liquid import Context
@@ -15,21 +21,16 @@ from liquid import Markup
 
 try:
     from liquid import soft_str  # type: ignore
-except ImportError:
-    # pylint: disable=invalid-name
-    soft_str = str
+except ImportError:  # pragma: no cover
+    soft_str = str  # pylint: disable=invalid-name
 
 from liquid.expression import Expression
 from liquid.expression import Filter
 from liquid.expression import StringLiteral
 
-from liquid.filter import string_filter
+from liquid.filter import liquid_filter
 from liquid.filter import int_arg
 
-from liquid_babel.messages.exceptions import TranslationKeyError
-from liquid_babel.messages.exceptions import TranslationValueError
-
-from liquid_babel.messages.translations import DEFAULT_KEYWORDS
 from liquid_babel.messages.translations import MessageText
 from liquid_babel.messages.translations import TranslatableFilter
 from liquid_babel.messages.translations import Translations
@@ -46,8 +47,83 @@ __all__ = [
 ]
 
 
+class BaseTranslateFilter(ABC):
+    """Base class for the default translation filters."""
+
+    name = "base"
+    re_vars = re.compile(r"(?<!%)%\((\w+)\)s")
+    with_context = True
+
+    def __init__(
+        self,
+        *,
+        translations_var: str = "translations",
+        default_translations: Optional[Translations] = None,
+        message_interpolation: bool = True,
+        autoescape_message: bool = False,
+    ) -> None:
+        self.translations_var = translations_var
+        self.default_translations = default_translations or NullTranslations()
+        self.message_interpolation = message_interpolation
+        self.autoescape_message = autoescape_message
+
+    @abstractmethod
+    def __call__(
+        self,
+        left: object,
+        *,
+        context: Context,
+        **kwargs: Any,
+    ) -> str:
+        """Filter function definition."""
+
+    def format_message(
+        self, context: Context, message_text: str, message_vars: Dict[str, Any]
+    ) -> str:
+        """Return the message string formatted with the given message variables."""
+        with context.extend(namespace=message_vars):
+            _vars = {
+                k: self._to_liquid_string(context.resolve(k), context.env.autoescape)
+                for k in self.re_vars.findall(message_text)
+            }
+
+        # Missing variables get replaced by the current `Undefined` type and we're
+        # converting all values to a string, so a KeyError or a ValueError should
+        # be impossible.
+        return message_text % _vars
+
+    def _resolve_translations(self, context: Context) -> Translations:
+        return cast(
+            Translations,
+            context.resolve(self.translations_var, self.default_translations),
+        )
+
+    def _to_liquid_string(self, val: object, autoescape: bool) -> str:
+        if isinstance(val, str) or (autoescape and hasattr(val, "__html__")):
+            pass
+        elif isinstance(val, bool):
+            val = str(val).lower()
+        elif val is None:
+            val = ""
+        elif isinstance(val, list):
+            if autoescape:
+                val = Markup("").join(soft_str(itm) for itm in val)
+            else:
+                val = "".join(soft_str(itm) for itm in val)
+        elif isinstance(val, range):
+            val = f"{val.start}..{val.stop - 1}"
+        else:
+            val = str(val)
+
+        if autoescape:
+            val = escape(val)
+
+        assert isinstance(val, str)
+        return val
+
+
 # pylint: disable=too-few-public-methods
-class Translate(TranslatableFilter):
+class Translate(BaseTranslateFilter, TranslatableFilter):
     """A Liquid filter for translating strings to other languages.
 
     Depending on the keyword arguments provided when the resulting filter
@@ -71,70 +147,60 @@ class Translate(TranslatableFilter):
     :type autoescape_message: bool
     """
 
-    keywords = DEFAULT_KEYWORDS
     name = "t"
-    with_context = True
 
-    def __init__(
-        self,
-        *,
-        translations_var: str = "translations",
-        default_translations: Optional[Translations] = None,
-        message_interpolation: bool = True,
-        autoescape_message: bool = False,
-    ) -> None:
-        self.translations_var = translations_var
-        self.default_translations = default_translations or NullTranslations()
-        self.message_interpolation = message_interpolation
-        self.autoescape_message = autoescape_message
-
-    @string_filter
+    @liquid_filter
     def __call__(
         self,
-        left: str,
+        __left: object,
+        __message_context: object = None,
         *,
         context: Context,
         **kwargs: Any,
     ) -> str:
         auto_escape = context.env.autoescape
+        __left = self._to_liquid_string(
+            __left,
+            autoescape=auto_escape and self.autoescape_message,
+        )
         translations = self._resolve_translations(context)
 
         # With Python 3.7, where pgettext is not available, the "context"
         # argument will be ignored.
-        message_context = kwargs.pop("context", None)
+        message_context = __message_context or None
         plural = kwargs.pop("plural", None)
         n = _count(kwargs.get("count"))
 
-        if auto_escape and self.autoescape_message:
-            left = escape(left)
-            if plural is not None:
-                plural = escape(plural)
-
         if plural is not None and n is not None:
+            plural = self._to_liquid_string(
+                plural,
+                autoescape=auto_escape and self.autoescape_message,
+            )
+
             if PGETTEXT_AVAILABLE and message_context is not None:
                 text = translations.npgettext(
                     str(message_context),
-                    left,
+                    __left,
                     plural,
                     n,
                 )
             else:
-                text = translations.ngettext(left, plural, n)
+                text = translations.ngettext(__left, plural, n)
         else:
             if PGETTEXT_AVAILABLE and message_context is not None:
                 text = translations.pgettext(
                     str(message_context),
-                    left,
+                    __left,
                 )
 
             else:
-                text = translations.gettext(left)
+                text = translations.gettext(__left)
 
         if auto_escape:
             text = Markup(text)
 
         if self.message_interpolation:
-            text = self.format_message(text, kwargs)
+            text = self.format_message(context, text, kwargs)
 
         return text
 
@@ -147,7 +213,7 @@ class Translate(TranslatableFilter):
         if not isinstance(left, StringLiteral):
             return None
 
-        _context = _filter.kwargs.get("context")
+        _context = _filter.args[0] if _filter.args else None
         plural = _filter.kwargs.get("plural")
 
         # Translate our filters into standard *gettext argument specs.
@@ -173,52 +239,34 @@ class Translate(TranslatableFilter):
             message=message,
         )
 
-    def format_message(self, message_text: str, message_vars: Dict[str, Any]) -> str:
-        """Return the message string formatted with the given message variables."""
-        try:
-            return message_text % message_vars
-        except KeyError as err:
-            raise TranslationKeyError(
-                f"can't format translation message text using {message_vars!r}"
-            ) from err
-        except ValueError as err:
-            raise TranslationValueError(
-                f"can't format translation message text using {message_vars!r}"
-            ) from err
 
-    def _resolve_translations(self, context: Context) -> Translations:
-        return cast(
-            Translations,
-            context.resolve(self.translations_var, self.default_translations),
-        )
-
-
-class GetText(Translate):
+class GetText(BaseTranslateFilter, TranslatableFilter):
     """A Liquid filter equivalent of `gettext.gettext`."""
 
     name = "gettext"
 
-    @string_filter
+    @liquid_filter
     def __call__(
         self,
-        left: str,
+        __left: object,
         *,
         context: Context,
         **kwargs: Any,
     ) -> str:
         auto_escape = context.env.autoescape
+        __left = self._to_liquid_string(
+            __left,
+            autoescape=auto_escape and self.autoescape_message,
+        )
+
         translations = self._resolve_translations(context)
-
-        if auto_escape and self.autoescape_message:
-            left = escape(left)
-
-        text = translations.gettext(left)
+        text = translations.gettext(__left)
 
         if auto_escape:
             text = Markup(text)
 
         if self.message_interpolation:
-            text = self.format_message(text, kwargs)
+            text = self.format_message(context, text, kwargs)
 
         return text
 
@@ -243,33 +291,37 @@ class NGetText(GetText):
 
     name = "ngettext"
 
-    @string_filter
+    @liquid_filter
     def __call__(
         self,
-        left: str,
-        plural: str,
-        count: object,
+        __left: object,
+        __plural: str,
+        __count: object,
         *,
         context: Context,
         **kwargs: Any,
     ) -> str:
         auto_escape = context.env.autoescape
+        __left = self._to_liquid_string(
+            __left,
+            autoescape=auto_escape and self.autoescape_message,
+        )
+
+        __plural = self._to_liquid_string(
+            __plural,
+            autoescape=auto_escape and self.autoescape_message,
+        )
+
+        __count = int_arg(__count, default=1)
+
         translations = self._resolve_translations(context)
-        count = int_arg(count, default=1)
-
-        if auto_escape and self.autoescape_message:
-            left = escape(left)
-            plural = escape(plural)
-        else:
-            plural = soft_str(plural)
-
-        text = translations.ngettext(left, plural, count)
+        text = translations.ngettext(__left, __plural, __count)
 
         if auto_escape:
             text = Markup(text)
 
         if self.message_interpolation:
-            text = self.format_message(text, kwargs)
+            text = self.format_message(context, text, kwargs)
 
         return text
 
@@ -294,36 +346,39 @@ class NGetText(GetText):
         )
 
 
-class PGetText(Translate):
+class PGetText(BaseTranslateFilter, TranslatableFilter):
     """A Liquid filter equivalent of `gettext.pgettext`."""
 
     name = "pgettext"
 
-    @string_filter
+    @liquid_filter
     def __call__(
         self,
-        left: str,
-        ctx: str,
+        __left: object,
+        __message_context: str,
         *,
         context: Context,
         **kwargs: Any,
     ) -> str:
         auto_escape = context.env.autoescape
+        __left = self._to_liquid_string(
+            __left,
+            autoescape=auto_escape and self.autoescape_message,
+        )
+
+        __message_context = self._to_liquid_string(
+            __message_context,
+            autoescape=auto_escape and self.autoescape_message,
+        )
+
         translations = self._resolve_translations(context)
-
-        if auto_escape and self.autoescape_message:
-            left = escape(left)
-            ctx = escape(ctx)
-        else:
-            ctx = soft_str(ctx)
-
-        text = translations.pgettext(ctx, left)
+        text = translations.pgettext(__message_context, __left)
 
         if auto_escape:
             text = Markup(text)
 
         if self.message_interpolation:
-            text = self.format_message(text, kwargs)
+            text = self.format_message(context, text, kwargs)
 
         return text
 
@@ -345,41 +400,53 @@ class PGetText(Translate):
         )
 
 
-class NPGetText(Translate):
+class NPGetText(BaseTranslateFilter, TranslatableFilter):
     """A Liquid filter equivalent of `gettext.npgettext`."""
 
     name = "npgettext"
 
-    @string_filter
+    @liquid_filter
     def __call__(
         self,
-        left: str,
-        ctx: str,
-        plural: str,
-        count: object,
+        __left: object,
+        __message_context: str,
+        __plural: str,
+        __count: object,
         *,
         context: Context,
         **kwargs: Any,
     ) -> str:
         auto_escape = context.env.autoescape
+        __left = self._to_liquid_string(
+            __left,
+            autoescape=auto_escape and self.autoescape_message,
+        )
+
+        __message_context = self._to_liquid_string(
+            __message_context,
+            autoescape=auto_escape and self.autoescape_message,
+        )
+
+        __plural = self._to_liquid_string(
+            __plural,
+            autoescape=auto_escape and self.autoescape_message,
+        )
+
+        __count = int_arg(__count, default=1)
+
         translations = self._resolve_translations(context)
-        count = int_arg(count, default=1)
-
-        if auto_escape and self.autoescape_message:
-            left = escape(left)
-            ctx = escape(ctx)
-            plural = escape(plural)
-        else:
-            ctx = soft_str(ctx)
-            plural = soft_str(plural)
-
-        text = translations.npgettext(ctx, left, plural, count)
+        text = translations.npgettext(
+            __message_context,
+            __left,
+            __plural,
+            __count,
+        )
 
         if auto_escape:
             text = Markup(text)
 
         if self.message_interpolation:
-            text = self.format_message(text, kwargs)
+            text = self.format_message(context, text, kwargs)
 
         return text
 
@@ -451,7 +518,14 @@ def register_translation_filters(
     :type autoescape_message: bool
     """
     default_translations = default_translations or NullTranslations()
-    for _filter in (Translate, GetText, NGetText, PGetText, NPGetText):
+    default_filters: Tuple[Type[BaseTranslateFilter], ...] = (
+        Translate,
+        GetText,
+        NGetText,
+        PGetText,
+        NPGetText,
+    )
+    for _filter in default_filters:
         if replace or _filter.name not in env.filters:
             env.add_filter(
                 _filter.name,
