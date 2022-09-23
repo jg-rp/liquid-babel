@@ -1,5 +1,7 @@
 """Test cases for rendering translatable messages."""
 # pylint: disable=missing-class-docstring,missing-function-docstring,too-many-public-methods
+
+import asyncio
 import re
 import unittest
 
@@ -221,6 +223,12 @@ class TranslateMessagesTestCase(unittest.TestCase):
         result = template.render(translations=MOCK_TRANSLATIONS)
         self.assertEqual(result, "HELLO, World!")
 
+        async def coro() -> str:
+            return await template.render_async(translations=MOCK_TRANSLATIONS)
+
+        result = asyncio.run(coro())
+        self.assertEqual(result, "HELLO, World!")
+
     def test_translate_tag_ngettext(self) -> None:
         """Test that we can do ngettext with the translate tag."""
         source = """
@@ -239,6 +247,44 @@ class TranslateMessagesTestCase(unittest.TestCase):
         # Mock translation
         result = template.render(translations=MOCK_TRANSLATIONS)
         self.assertEqual(result, "HELLO, WorldS!")
+
+    @unittest.skipUnless(PGETTEXT_AVAILABLE, "pgettext was new in python 3.8")
+    def test_translate_tag_pgettext(self) -> None:
+        """Test that we can do pgettext with the translate tag."""
+        source = """
+            {%- translate context: 'greeting', you: 'World' -%}
+                Hello, {{ you }}!
+            {%- endtranslate -%}
+        """
+        template = self.env.from_string(source)
+
+        # Default, null translation
+        result = template.render()
+        self.assertEqual(result, "Hello, World!")
+
+        # Mock translation
+        result = template.render(translations=MOCK_TRANSLATIONS)
+        self.assertEqual(result, "greeting::HELLO, World!")
+
+    @unittest.skipUnless(PGETTEXT_AVAILABLE, "pgettext was new in python 3.8")
+    def test_translate_tag_npgettext(self) -> None:
+        """Test that we can do npgettext with the translate tag."""
+        source = """
+            {%- translate context: 'greeting', you: 'World', count: 2 -%}
+                Hello, {{ you }}!
+            {%- plural -%}
+                Hello, {{ you }}s!
+            {%- endtranslate -%}
+        """
+        template = self.env.from_string(source)
+
+        # Default, null translation
+        result = template.render()
+        self.assertEqual(result, "Hello, Worlds!")
+
+        # Mock translation
+        result = template.render(translations=MOCK_TRANSLATIONS)
+        self.assertEqual(result, "greeting::HELLO, WorldS!")
 
 
 class AutoEscapeMessagesTestCase(unittest.TestCase):
@@ -309,3 +355,20 @@ class AutoEscapeMessagesTestCase(unittest.TestCase):
             s="<b>Hello, World!</b>", translations=MOCK_TRANSLATIONS
         )
         self.assertEqual(result, "greeting::&LT;B&GT;HELLO, WORLD!&LT;/B&GT;")
+
+    def test_translate_tag_gettext(self) -> None:
+        """Test that we can do gettext with the translate tag."""
+        source = """
+            {%- translate -%}
+                Hello, {{ you }}!
+            {%- endtranslate -%}
+        """
+        template = self.env.from_string(source)
+
+        # Default, null translation
+        result = template.render(you="<b>World</b>")
+        self.assertEqual(result, "Hello, &lt;b&gt;World&lt;/b&gt;!")
+
+        # Mock translation
+        result = template.render(you="<b>World</b>", translations=MOCK_TRANSLATIONS)
+        self.assertEqual(result, "HELLO, &lt;b&gt;World&lt;/b&gt;!")

@@ -59,13 +59,12 @@ from liquid.token import TOKEN_AS
 from liquid.token import TOKEN_EOF
 from liquid.token import TOKEN_COMMA
 
-from liquid_babel.messages.exceptions import TranslationKeyError
 from liquid_babel.messages.exceptions import TranslationSyntaxError
-from liquid_babel.messages.exceptions import TranslationValueError
 
 from liquid_babel.messages.translations import MessageText
 from liquid_babel.messages.translations import TranslatableTag
 from liquid_babel.messages.translations import Translations
+from liquid_babel.messages.translations import to_liquid_string
 
 if TYPE_CHECKING:  # pragma: no cover
     from liquid.context import Context
@@ -191,6 +190,12 @@ class TranslateTag(Tag):
                     )
                     and isinstance(node.expression.expression.path[0].value, str)
                 ):
+                    if len(node.expression.expression.path) > 1:
+                        raise TranslationSyntaxError(
+                            f"unexpected variable property access '{node.expression.expression}'",
+                            linenum=node.token().linenum,
+                        )
+
                     var = node.expression.expression.path[0].value
                     if node.expression.filters:
                         raise TranslationSyntaxError(
@@ -206,7 +211,7 @@ class TranslateTag(Tag):
                     )
             else:
                 raise TranslationSyntaxError(
-                    f"unexpected tag '{node.token().type}' in translation text",
+                    f"unexpected tag '{node.token().value}' in translation text",
                     linenum=node.token().linenum,
                 )
 
@@ -233,6 +238,7 @@ class TranslateNode(Node, TranslatableTag):
     translations_var = "translations"
     message_count_var = "count"
     message_context_var = "context"
+    re_vars = re.compile(r"(?<!%)%\((\w+)\)s")
 
     def __init__(
         self,
@@ -355,16 +361,14 @@ class TranslateNode(Node, TranslatableTag):
         """Return the message string formatted with the given message variables."""
         if context.env.autoescape:
             message_text = Markup(message_text)
-        try:
-            return message_text % message_vars
-        except KeyError as err:
-            raise TranslationKeyError(
-                f"can't format translation message text using {message_vars!r}"
-            ) from err
-        except ValueError as err:
-            raise TranslationValueError(
-                f"can't format translation message text using {message_vars!r}"
-            ) from err
+
+        with context.extend(namespace=message_vars):
+            _vars = {
+                k: to_liquid_string(context.resolve(k), context.env.autoescape)
+                for k in self.re_vars.findall(message_text)
+            }
+
+        return message_text % _vars
 
     def children(self) -> List[ChildNode]:
         children = [

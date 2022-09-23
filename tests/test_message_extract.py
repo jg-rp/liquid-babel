@@ -461,6 +461,15 @@ class ExtractFromTemplateTestCase(unittest.TestCase):
         self.assertEqual(message.message, ("Hello, %(you)s!",))
         self.assertEqual(message.comments, [])
 
+    def test_empty_translate_tag(self) -> None:
+        """Test that we handle empty translate tags."""
+        source = "{% translate %}{% endtranslate %}"
+
+        template = self.env.from_string(source)
+        messages = list(extract_from_template(template))
+
+        self.assertEqual(len(messages), 0)
+
     def test_translate_tag_with_comment(self) -> None:
         """Test that the `translate` tag can include a comment."""
         source = (

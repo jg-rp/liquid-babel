@@ -16,13 +16,7 @@ from typing import Union
 
 from liquid import Context
 from liquid import Environment
-from liquid import escape
 from liquid import Markup
-
-try:
-    from liquid import soft_str  # type: ignore
-except ImportError:  # pragma: no cover
-    soft_str = str  # pylint: disable=invalid-name
 
 from liquid.expression import Expression
 from liquid.expression import Filter
@@ -34,6 +28,7 @@ from liquid.filter import int_arg
 from liquid_babel.messages.translations import MessageText
 from liquid_babel.messages.translations import TranslatableFilter
 from liquid_babel.messages.translations import Translations
+from liquid_babel.messages.translations import to_liquid_string
 
 PGETTEXT_AVAILABLE = hasattr(NullTranslations, "pgettext")
 
@@ -83,7 +78,7 @@ class BaseTranslateFilter(ABC):
         """Return the message string formatted with the given message variables."""
         with context.extend(namespace=message_vars):
             _vars = {
-                k: self._to_liquid_string(context.resolve(k), context.env.autoescape)
+                k: to_liquid_string(context.resolve(k), context.env.autoescape)
                 for k in self.re_vars.findall(message_text)
             }
 
@@ -97,29 +92,6 @@ class BaseTranslateFilter(ABC):
             Translations,
             context.resolve(self.translations_var, self.default_translations),
         )
-
-    def _to_liquid_string(self, val: Any, autoescape: bool) -> str:
-        if isinstance(val, str) or (autoescape and hasattr(val, "__html__")):
-            pass
-        elif isinstance(val, bool):
-            val = str(val).lower()
-        elif val is None:
-            val = ""
-        elif isinstance(val, list):
-            if autoescape:
-                val = Markup("").join(soft_str(itm) for itm in val)
-            else:
-                val = "".join(soft_str(itm) for itm in val)
-        elif isinstance(val, range):
-            val = f"{val.start}..{val.stop - 1}"
-        else:
-            val = str(val)
-
-        if autoescape:
-            val = escape(val)
-
-        assert isinstance(val, str)
-        return val
 
 
 # pylint: disable=too-few-public-methods
@@ -159,7 +131,7 @@ class Translate(BaseTranslateFilter, TranslatableFilter):
         **kwargs: Any,
     ) -> str:
         auto_escape = context.env.autoescape
-        __left = self._to_liquid_string(
+        __left = to_liquid_string(
             __left,
             autoescape=auto_escape and self.autoescape_message,
         )
@@ -172,7 +144,7 @@ class Translate(BaseTranslateFilter, TranslatableFilter):
         n = _count(kwargs.get("count"))
 
         if plural is not None and n is not None:
-            plural = self._to_liquid_string(
+            plural = to_liquid_string(
                 plural,
                 autoescape=auto_escape and self.autoescape_message,
             )
@@ -254,7 +226,7 @@ class GetText(BaseTranslateFilter, TranslatableFilter):
         **kwargs: Any,
     ) -> str:
         auto_escape = context.env.autoescape
-        __left = self._to_liquid_string(
+        __left = to_liquid_string(
             __left,
             autoescape=auto_escape and self.autoescape_message,
         )
@@ -302,12 +274,12 @@ class NGetText(GetText):
         **kwargs: Any,
     ) -> str:
         auto_escape = context.env.autoescape
-        __left = self._to_liquid_string(
+        __left = to_liquid_string(
             __left,
             autoescape=auto_escape and self.autoescape_message,
         )
 
-        __plural = self._to_liquid_string(
+        __plural = to_liquid_string(
             __plural,
             autoescape=auto_escape and self.autoescape_message,
         )
@@ -361,12 +333,12 @@ class PGetText(BaseTranslateFilter, TranslatableFilter):
         **kwargs: Any,
     ) -> str:
         auto_escape = context.env.autoescape
-        __left = self._to_liquid_string(
+        __left = to_liquid_string(
             __left,
             autoescape=auto_escape and self.autoescape_message,
         )
 
-        __message_context = self._to_liquid_string(
+        __message_context = to_liquid_string(
             __message_context,
             autoescape=auto_escape and self.autoescape_message,
         )
@@ -417,17 +389,17 @@ class NPGetText(BaseTranslateFilter, TranslatableFilter):
         **kwargs: Any,
     ) -> str:
         auto_escape = context.env.autoescape
-        __left = self._to_liquid_string(
+        __left = to_liquid_string(
             __left,
             autoescape=auto_escape and self.autoescape_message,
         )
 
-        __message_context = self._to_liquid_string(
+        __message_context = to_liquid_string(
             __message_context,
             autoescape=auto_escape and self.autoescape_message,
         )
 
-        __plural = self._to_liquid_string(
+        __plural = to_liquid_string(
             __plural,
             autoescape=auto_escape and self.autoescape_message,
         )

@@ -8,6 +8,7 @@ from liquid import StrictUndefined
 from liquid.exceptions import UndefinedError
 
 from liquid_babel.filters.translate import register_translation_filters
+from liquid_babel.messages.exceptions import TranslationSyntaxError
 from liquid_babel.tags.translate import TranslateTag
 
 
@@ -67,5 +68,92 @@ class MessagesEdgeTestCase(unittest.TestCase):
     def test_count_not_int(self) -> None:
         """Test that the t filter handles counts that are not ints."""
         source = "{{ 'Hello, World!' | t: plural: 'Hello, Worlds!', count:'foo' }}"
+        template = self.env.from_string(source)
+        self.assertEqual(template.render(), "Hello, World!")
+
+    def test_translate_block_vars_with_filters(self) -> None:
+        """Test that filters are not allowed in block variables."""
+        source = """
+            {%- translate you: 'World', count: 2 -%}
+                Hello, {{ you | upcase }}!
+            {%- plural -%}
+                Hello, {{ you }}s!
+            {%- endtranslate -%}
+        """
+
+        with self.assertRaises(TranslationSyntaxError) as raised:
+            self.env.from_string(source)
+
+        self.assertEqual(
+            str(raised.exception),
+            "unexpected filter on translation variable 'you', on line 3",
+        )
+
+    def test_translate_block_chained_vars(self) -> None:
+        """Test that chained identifiers are not allowed in block variables."""
+        source = """
+            {%- translate -%}
+                Hello, {{ some.thing }}!
+            {%- plural -%}
+                Hello, {{ you }}s!
+            {%- endtranslate -%}
+        """
+
+        with self.assertRaises(TranslationSyntaxError) as raised:
+            self.env.from_string(source)
+
+        self.assertEqual(
+            str(raised.exception),
+            "unexpected variable property access 'some.thing', on line 3",
+        )
+
+    def test_translate_block_not_var(self) -> None:
+        """Test that Liquid literals are not allowed in block variables."""
+        source = """
+            {%- translate -%}
+                Hello, {{ 'foo' }}!
+            {%- plural -%}
+                Hello, {{ you }}s!
+            {%- endtranslate -%}
+        """
+
+        with self.assertRaises(TranslationSyntaxError) as raised:
+            self.env.from_string(source)
+
+        self.assertEqual(
+            str(raised.exception),
+            "expected a translation variable, found ''foo'', on line 3",
+        )
+
+    def test_translate_block_tags(self) -> None:
+        """Test that tags are not allowed inside translation blocks."""
+        source = """
+            {%- translate -%}
+                {% if true %}
+                    Hello, {{ 'foo' }}!
+                {% endif %}
+            {%- plural -%}
+                Hello, {{ you }}s!
+            {%- endtranslate -%}
+        """
+
+        with self.assertRaises(TranslationSyntaxError) as raised:
+            self.env.from_string(source)
+
+        self.assertEqual(
+            str(raised.exception),
+            "unexpected tag 'if' in translation text, on line 3",
+        )
+
+    def test_translate_block_count(self) -> None:
+        """Test that we handle counts that are not ints."""
+        source = """
+            {%- translate you: 'World', count: 'foo' -%}
+                Hello, {{ you }}!
+            {%- plural -%}
+                Hello, {{ you }}s!
+            {%- endtranslate -%}
+        """
+
         template = self.env.from_string(source)
         self.assertEqual(template.render(), "Hello, World!")

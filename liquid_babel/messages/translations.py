@@ -2,6 +2,7 @@
 from abc import ABC
 from abc import abstractmethod
 
+from typing import Any
 from typing import Iterable
 from typing import List
 from typing import NamedTuple
@@ -10,6 +11,14 @@ from typing import Tuple
 from typing import Union
 
 from typing_extensions import Protocol
+
+from liquid import escape
+from liquid import Markup
+
+try:
+    from liquid import soft_str  # type: ignore
+except ImportError:  # pragma: no cover
+    soft_str = str  # pylint: disable=invalid-name
 
 from liquid.expression import Expression
 from liquid.expression import Filter
@@ -83,3 +92,28 @@ class TranslatableFilter(ABC):  # pylint: disable=too-few-public-methods
         lineno: int,
     ) -> Optional[MessageText]:
         """Generate a sequence of translation messages."""
+
+
+def to_liquid_string(val: Any, autoescape: bool) -> str:
+    """Return a Liquid string representation of the given value."""
+    if isinstance(val, str) or (autoescape and hasattr(val, "__html__")):
+        pass
+    elif isinstance(val, bool):
+        val = str(val).lower()
+    elif val is None:
+        val = ""
+    elif isinstance(val, list):
+        if autoescape:
+            val = Markup("").join(soft_str(itm) for itm in val)
+        else:
+            val = "".join(soft_str(itm) for itm in val)
+    elif isinstance(val, range):
+        val = f"{val.start}..{val.stop - 1}"
+    else:
+        val = str(val)
+
+    if autoescape:
+        val = escape(val)
+
+    assert isinstance(val, str)
+    return val
