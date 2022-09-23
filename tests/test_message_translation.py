@@ -7,7 +7,9 @@ from typing import List
 
 from liquid import Environment
 
+from liquid_babel.filters.translate import PGETTEXT_AVAILABLE
 from liquid_babel.filters.translate import register_translation_filters
+
 from liquid_babel.tags.translate import TranslateTag
 
 
@@ -111,6 +113,7 @@ class TranslateMessagesTestCase(unittest.TestCase):
         result = template.render(translations=MOCK_TRANSLATIONS)
         self.assertEqual(result, "HELLO, WORLDS!")
 
+    @unittest.skipUnless(PGETTEXT_AVAILABLE, "pgettext was new in python 3.8")
     def test_pgettext_filter(self) -> None:
         """Test that we can translate messages with the pgettext filter."""
         source = "{{ 'Hello, World!' | pgettext: 'greeting' }}"
@@ -124,6 +127,7 @@ class TranslateMessagesTestCase(unittest.TestCase):
         result = template.render(translations=MOCK_TRANSLATIONS)
         self.assertEqual(result, "greeting::HELLO, WORLD!")
 
+    @unittest.skipUnless(PGETTEXT_AVAILABLE, "pgettext was new in python 3.8")
     def test_npgettext_filter(self) -> None:
         """Test that we can translate messages with the npgettext filter."""
         source = "{{ 'Hello, World!' | npgettext: 'greeting', 'Hello, Worlds!', 2 }}"
@@ -163,6 +167,7 @@ class TranslateMessagesTestCase(unittest.TestCase):
         result = template.render(translations=MOCK_TRANSLATIONS)
         self.assertEqual(result, "HELLO, WORLDS!")
 
+    @unittest.skipUnless(PGETTEXT_AVAILABLE, "pgettext was new in python 3.8")
     def test_t_filter_pgettext(self) -> None:
         """Test that we can do pgettext with the t filter."""
         source = "{{ 'Hello, %(you)s!' | t: 'greeting', you: 'World' }}"
@@ -176,6 +181,7 @@ class TranslateMessagesTestCase(unittest.TestCase):
         result = template.render(translations=MOCK_TRANSLATIONS)
         self.assertEqual(result, "greeting::HELLO, World!")
 
+    @unittest.skipUnless(PGETTEXT_AVAILABLE, "pgettext was new in python 3.8")
     def test_t_filter_npgettext(self) -> None:
         """Test that we can do npgettext with the t filter."""
         source = """

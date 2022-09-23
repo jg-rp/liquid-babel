@@ -98,7 +98,7 @@ class BaseTranslateFilter(ABC):
             context.resolve(self.translations_var, self.default_translations),
         )
 
-    def _to_liquid_string(self, val: object, autoescape: bool) -> str:
+    def _to_liquid_string(self, val: Any, autoescape: bool) -> str:
         if isinstance(val, str) or (autoescape and hasattr(val, "__html__")):
             pass
         elif isinstance(val, bool):
