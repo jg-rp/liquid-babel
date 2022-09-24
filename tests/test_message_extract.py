@@ -537,6 +537,14 @@ class ExtractFromTemplateTestCase(unittest.TestCase):
         self.assertEqual(message.message, ("Hello, World!",))
         self.assertEqual(message.comments, [])
 
+    def test_translation_filters_must_come_first(self) -> None:
+        """Test messages with filters before t or gettext are ignored."""
+        source = "{{ 'Hello, World!' | upcase | t }}\n"
+
+        template = self.env.from_string(source)
+        messages = list(extract_from_template(template))
+        self.assertEqual(len(messages), 0)
+
 
 class BabelExtractTestCase(unittest.TestCase):
     def test_extract_liquid(self) -> None:

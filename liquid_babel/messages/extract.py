@@ -12,7 +12,6 @@ from liquid import Environment
 from liquid.ast import Node
 
 from liquid.expression import Expression
-from liquid.expression import Filter
 from liquid.expression import FilteredExpression
 
 from liquid.template import BoundTemplate
@@ -79,8 +78,7 @@ def extract_from_template(
         if isinstance(expr, FilteredExpression):
             for _lineno, funcname, message in _extract_from_filters(
                 template.env,
-                expr.expression,
-                expr.filters,
+                expr,
                 lineno,
                 _keywords,
             ):
@@ -140,14 +138,15 @@ def extract_from_template(
 
 def _extract_from_filters(
     environment: Environment,
-    expression: Expression,
-    filters: List[Filter],
+    expression: FilteredExpression,
     lineno: int,
     keywords: Union[List[str], Dict[str, Any]],
 ) -> Iterator[MessageText]:
-    for _filter in filters:
+    if expression.filters:
+        # Only the first in a chain of filters is extractable.
+        _filter = expression.filters[0]
         filter_func = environment.filters.get(_filter.name)
         if _filter.name in keywords and isinstance(filter_func, TranslatableFilter):
-            message = filter_func.message(expression, _filter, lineno)  # type: ignore
+            message = filter_func.message(expression.expression, _filter, lineno)  # type: ignore
             if message:
                 yield message

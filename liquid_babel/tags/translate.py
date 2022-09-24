@@ -169,6 +169,8 @@ class TranslateTag(Tag):
         expect(stream, TOKEN_COLON)
         stream.next_token()  # Eat colon
 
+        # TODO: support "simple" filters without arguments
+
         val = parse_expression(stream)
         stream.next_token()
 

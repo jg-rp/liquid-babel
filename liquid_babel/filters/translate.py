@@ -133,11 +133,9 @@ class Translate(BaseTranslateFilter, TranslatableFilter):
             __left,
             autoescape=auto_escape and self.autoescape_message,
         )
+
         translations = self._resolve_translations(context)
 
-        # With Python 3.7, where pgettext is not available, the "context"
-        # argument will be ignored.
-        message_context = __message_context or None
         plural = kwargs.pop("plural", None)
         n = _count(kwargs.get("count"))
 
@@ -147,9 +145,12 @@ class Translate(BaseTranslateFilter, TranslatableFilter):
                 autoescape=auto_escape and self.autoescape_message,
             )
 
-            if message_context is not None:
+            if __message_context is not None:
                 text = translations.npgettext(
-                    str(message_context),
+                    to_liquid_string(
+                        __message_context,
+                        autoescape=auto_escape and self.autoescape_message,
+                    ),
                     __left,
                     plural,
                     n,
@@ -157,9 +158,12 @@ class Translate(BaseTranslateFilter, TranslatableFilter):
             else:
                 text = translations.ngettext(__left, plural, n)
         else:
-            if message_context is not None:
+            if __message_context is not None:
                 text = translations.pgettext(
-                    str(message_context),
+                    to_liquid_string(
+                        __message_context,
+                        autoescape=auto_escape and self.autoescape_message,
+                    ),
                     __left,
                 )
 
