@@ -1,13 +1,18 @@
 """Test cases for translatable message extraction."""
 # pylint: disable=missing-class-docstring,missing-function-docstring,too-many-public-methods
+import io
 import unittest
+
+from babel.messages.extract import extract
 
 from liquid import Environment
 from liquid import Template
 
 from liquid_babel.filters.translate import register_translation_filters
 from liquid_babel.messages.extract import extract_from_template
+from liquid_babel.messages.extract import extract_liquid
 from liquid_babel.tags.translate import TranslateTag
+from liquid_babel.messages.translations import DEFAULT_KEYWORDS
 
 
 class ExtractFromTemplateTestCase(unittest.TestCase):
@@ -531,3 +536,41 @@ class ExtractFromTemplateTestCase(unittest.TestCase):
         self.assertEqual(message.funcname, "gettext")
         self.assertEqual(message.message, ("Hello, World!",))
         self.assertEqual(message.comments, [])
+
+
+class BabelExtractTestCase(unittest.TestCase):
+    def test_extract_liquid(self) -> None:
+        """Test that Babel can extract messages from Liquid templates."""
+        source = """
+        {% # Translators: some comment %}
+        {{ 'Hello, World!' | t }}
+        {% comment %}Translators: other comment{% endcomment %}
+        {% translate count: 2 %}
+            Hello, {{ you }}!
+        {% plural %}
+            Hello, all!
+        {% endtranslate %}
+        """
+
+        messages = list(
+            extract(
+                extract_liquid,
+                io.StringIO(source),
+                keywords=DEFAULT_KEYWORDS,
+                comment_tags=["Translators:"],
+            )  # type: ignore
+        )
+
+        self.assertEqual(len(messages), 2)
+        self.assertEqual(
+            messages,
+            [
+                (3, "Hello, World!", ["Translators: some comment"], None),
+                (
+                    5,
+                    ("Hello, %(you)s!", "Hello, all!"),
+                    ["Translators: other comment"],
+                    None,
+                ),
+            ],
+        )

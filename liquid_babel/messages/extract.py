@@ -9,7 +9,6 @@ from typing import Tuple
 from typing import Union
 
 from liquid import Environment
-from liquid import Template
 from liquid.ast import Node
 
 from liquid.expression import Expression
@@ -55,9 +54,10 @@ def extract_liquid(
     to extract messages from an existing template bound to an existing
     environment.
     """
-    template = Template(fileobj.read(), **options or {})
-    register_translation_filters(template.env, replace=False)
-    _register_translation_tag(template.env, keywords)
+    env = Environment(**options or {})
+    register_translation_filters(env, replace=False)
+    env.add_tag(TranslateTag)
+    template = env.from_string(fileobj.read())
     return extract_from_template(
         template=template,
         keywords=keywords,
@@ -151,10 +151,3 @@ def _extract_from_filters(
             message = filter_func.message(expression, _filter, lineno)  # type: ignore
             if message:
                 yield message
-
-
-def _register_translation_tag(env: Environment, keywords: List[str]) -> None:
-    for funcname in keywords:
-        if isinstance(env.tags.get(funcname), TranslatableTag):
-            return
-    env.add_tag(TranslateTag)

@@ -30,8 +30,6 @@ from liquid_babel.messages.translations import TranslatableFilter
 from liquid_babel.messages.translations import Translations
 from liquid_babel.messages.translations import to_liquid_string
 
-PGETTEXT_AVAILABLE = hasattr(NullTranslations, "pgettext")
-
 __all__ = [
     "Translate",
     "GetText",
@@ -149,7 +147,7 @@ class Translate(BaseTranslateFilter, TranslatableFilter):
                 autoescape=auto_escape and self.autoescape_message,
             )
 
-            if PGETTEXT_AVAILABLE and message_context is not None:
+            if message_context is not None:
                 text = translations.npgettext(
                     str(message_context),
                     __left,
@@ -159,7 +157,7 @@ class Translate(BaseTranslateFilter, TranslatableFilter):
             else:
                 text = translations.ngettext(__left, plural, n)
         else:
-            if PGETTEXT_AVAILABLE and message_context is not None:
+            if message_context is not None:
                 text = translations.pgettext(
                     str(message_context),
                     __left,
