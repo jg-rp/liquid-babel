@@ -5,7 +5,6 @@ import itertools
 import re
 import sys
 
-from functools import partial
 from gettext import NullTranslations
 
 from typing import Any
@@ -28,21 +27,22 @@ from liquid.ast import BlockNode
 from liquid.builtin.literal import LiteralNode
 from liquid.builtin.statement import StatementNode
 
+from liquid.expression import Filter
 from liquid.expression import FilteredExpression
 from liquid.expression import Identifier
 from liquid.expression import IdentifierPathElement
 from liquid.expression import StringLiteral
 
-from liquid.limits import to_int
+from liquid.expressions.common import parse_unchained_identifier
+from liquid.expressions.filtered.lex import tokenize as tokenize_filtered_expression
+from liquid.expressions.filtered.parse import parse_obj as parse_filtered_obj
 
-from liquid.lex import include_expression_rules
-from liquid.lex import _compile_rules
-from liquid.lex import _tokenize
+from liquid.expressions.stream import TokenStream as ExprTokenStream
+
+from liquid.limits import to_int
 
 from liquid.parse import expect
 from liquid.parse import get_parser
-from liquid.parse import parse_expression
-from liquid.parse import parse_unchained_identifier
 
 from liquid.stream import TokenStream
 from liquid.tag import Tag
@@ -50,12 +50,9 @@ from liquid.tag import Tag
 from liquid.token import Token
 from liquid.token import TOKEN_TAG
 from liquid.token import TOKEN_EXPRESSION
-from liquid.token import TOKEN_TRUE
-from liquid.token import TOKEN_FALSE
-from liquid.token import TOKEN_NIL
-from liquid.token import TOKEN_NULL
+from liquid.token import TOKEN_IDENTIFIER
+from liquid.token import TOKEN_PIPE
 from liquid.token import TOKEN_COLON
-from liquid.token import TOKEN_AS
 from liquid.token import TOKEN_EOF
 from liquid.token import TOKEN_COMMA
 
@@ -76,22 +73,6 @@ TAG_TRANS = sys.intern("translate")
 TAG_ENDTRANS = sys.intern("endtranslate")
 TAG_PLURAL = sys.intern("plural")
 
-trans_expression_keywords = frozenset(
-    [
-        TOKEN_TRUE,
-        TOKEN_FALSE,
-        TOKEN_NIL,
-        TOKEN_NULL,
-        TOKEN_AS,
-    ]
-)
-
-tokenize_trans_expression = partial(
-    _tokenize,
-    rules=_compile_rules(include_expression_rules),
-    keywords=trans_expression_keywords,
-)
-
 
 class TransKeywordArg(NamedTuple):
     """A key/expression pair representing a block keyword argument."""
@@ -111,11 +92,21 @@ class MessageBlock(NamedTuple):
 class TranslateTag(Tag):
     """The "Trans" or "Translate" tag."""
 
+    block = True
+
+    # Override these to change the tag's name from "translate" to "t"
+    # or "trans", for example.
     name = TAG_TRANS
     end = TAG_ENDTRANS
-    block = True
     plural_name = TAG_PLURAL
+
     re_whitespace = re.compile(r"\s*\n\s*")
+
+    # Override this to disable argument-less filters in translation
+    # expression arguments.
+    simple_filters = True
+
+    # Override this to disable message whitespace normalization.
     trim_messages = True
 
     def __init__(self, env: Environment):
@@ -129,12 +120,14 @@ class TranslateTag(Tag):
         args = {}
 
         if stream.current.type == TOKEN_EXPRESSION:
-            expr_stream = TokenStream(tokenize_trans_expression(stream.current.value))
-            while expr_stream.current.type != TOKEN_EOF:
+            expr_stream = ExprTokenStream(
+                tokenize_filtered_expression(stream.current.value)
+            )
+            while expr_stream.current[1] != TOKEN_EOF:
                 key, expr = self.parse_argument(expr_stream)
                 args[key] = expr
 
-                if expr_stream.current.type == TOKEN_COMMA:
+                if expr_stream.current[1] == TOKEN_COMMA:
                     expr_stream.next_token()  # Eat comma
 
             stream.next_token()
@@ -161,20 +154,44 @@ class TranslateTag(Tag):
             plural=plural,
         )
 
-    def parse_argument(self, stream: TokenStream) -> TransKeywordArg:
+    def parse_argument(self, stream: ExprTokenStream) -> TransKeywordArg:
         """Parse a keyword argument from a stream of tokens."""
         key = str(parse_unchained_identifier(stream))
-        stream.next_token()
+        next(stream)
 
-        expect(stream, TOKEN_COLON)
-        stream.next_token()  # Eat colon
+        stream.expect(TOKEN_COLON)
+        next(stream)  # Eat colon
 
-        # TODO: support "simple" filters without arguments
+        # The argument value could be the left-hand side of a simple filter.
+        left = parse_filtered_obj(stream)
+        next(stream)
+        if stream.current[1] == TOKEN_PIPE:
+            if self.simple_filters:
+                next(stream)
+                _filters = self.parse_no_arg_filters(stream)
+                return TransKeywordArg(key, FilteredExpression(left, _filters))
 
-        val = parse_expression(stream)
-        stream.next_token()
+            raise TranslationSyntaxError(
+                f"unexpected filtered '{self.name}' tag argument"
+            )
 
-        return TransKeywordArg(key, val)
+        return TransKeywordArg(key, left)
+
+    def parse_no_arg_filters(self, stream: ExprTokenStream) -> List[Filter]:
+        """Parse a stream of tokens as an argument-less filter chain."""
+        filters: List[Filter] = []
+        while stream.current[1] != TOKEN_EOF and stream.current[1] != TOKEN_COMMA:
+            if stream.current[1] == TOKEN_COLON:
+                raise TranslationSyntaxError(
+                    f"unexpected filter arguments in '{self.name}' tag"
+                )
+            stream.expect(TOKEN_IDENTIFIER)
+            name = stream.current[2]
+            next(stream)
+            filters.append(Filter(name, []))
+
+        assert stream.current[1] == TOKEN_EOF or stream.current[1] == TOKEN_COMMA
+        return filters
 
     def parse_message_block(self, block: BlockNode) -> MessageBlock:
         """Return message text and variables from a translation block."""

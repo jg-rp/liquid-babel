@@ -250,6 +250,25 @@ class TranslateMessagesTestCase(unittest.TestCase):
         result = template.render(translations=MOCK_TRANSLATIONS)
         self.assertEqual(result, "HELLO, WorldS!")
 
+    def test_translate_tag_with_filtered_argument(self) -> None:
+        """Test that we can use argument-less filters with the translate tag."""
+        source = """
+            {%- translate you: 'World', count: collection | size -%}
+                Hello, {{ you }}!
+            {%- plural -%}
+                Hello, {{ you }}s!
+            {%- endtranslate -%}
+        """
+        template = self.env.from_string(source)
+
+        # Default, null translation
+        result = template.render(collection=[1, 2])
+        self.assertEqual(result, "Hello, Worlds!")
+
+        # Mock translation
+        result = template.render(collection=[1, 2], translations=MOCK_TRANSLATIONS)
+        self.assertEqual(result, "HELLO, WorldS!")
+
     @unittest.skipUnless(PGETTEXT_AVAILABLE, "pgettext was new in python 3.8")
     def test_translate_tag_pgettext(self) -> None:
         """Test that we can do pgettext with the translate tag."""
@@ -374,3 +393,27 @@ class AutoEscapeMessagesTestCase(unittest.TestCase):
         # Mock translation
         result = template.render(you="<b>World</b>", translations=MOCK_TRANSLATIONS)
         self.assertEqual(result, "HELLO, &lt;b&gt;World&lt;/b&gt;!")
+
+    def test_translate_tag_message_trimming(self) -> None:
+        """Test that we normalize whitespace in messages by default."""
+        source = """
+            {%- translate you: 'World', there: false, other: 'foo' -%}
+                Hello, {{ you }}!
+                {{ other }}
+            {%- endtranslate -%}
+        """
+        template = self.env.from_string(source)
+
+        # Default, null translation
+        result = template.render()
+        self.assertEqual(result, "Hello, World! foo")
+
+        # Mock translation
+        result = template.render(translations=MOCK_TRANSLATIONS)
+        self.assertEqual(result, "HELLO, World! foo")
+
+        async def coro() -> str:
+            return await template.render_async(translations=MOCK_TRANSLATIONS)
+
+        result = asyncio.run(coro())
+        self.assertEqual(result, "HELLO, World! foo")

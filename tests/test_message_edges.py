@@ -157,3 +157,23 @@ class MessagesEdgeTestCase(unittest.TestCase):
 
         template = self.env.from_string(source)
         self.assertEqual(template.render(), "Hello, World!")
+
+    def test_translate_tag_filter_arguments(self) -> None:
+        """Test that filter arguments are treated as a new tag argument."""
+        source = """
+            {%- translate you: 'World', count: collection | size: x, other: 'foo' -%}
+                Hello, {{ you }}!
+                {{ other }}
+            {%- plural -%}
+                Hello, {{ you }}s!
+                {{ other }}
+            {%- endtranslate -%}
+        """
+
+        with self.assertRaises(TranslationSyntaxError) as raised:
+            self.env.from_string(source)
+
+        self.assertEqual(
+            str(raised.exception),
+            "unexpected filter arguments in 'translate' tag, on line 2",
+        )
