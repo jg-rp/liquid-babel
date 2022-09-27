@@ -33,6 +33,10 @@ DEFAULT_KEYWORDS = {
     "npgettext": ((1, "c"), 2, 3),
 }
 
+DEFAULT_COMMENT_TAGS = [
+    "Translators:",
+]
+
 
 class Translations(Protocol):
     """The object expected to be available in a render context for
@@ -56,12 +60,20 @@ class Translations(Protocol):
         """Do plural-forms context and message lookup."""
 
 
+MESSAGES = Union[
+    str,
+    Tuple[str, ...],
+    Tuple[Tuple[str, str], str],
+    Tuple[Tuple[str, str], str, str],
+]
+
+
 class MessageTuple(NamedTuple):
     """The tuple expected to be returned from babel extraction methods."""
 
     lineno: int
     funcname: str
-    message: Union[str, Tuple[Union[str, Tuple[str, ...]], ...]]
+    message: MESSAGES
     comments: List[str]
 
 
@@ -70,7 +82,7 @@ class MessageText(NamedTuple):
 
     lineno: int
     funcname: str
-    message: Tuple[Union[str, Tuple[str, ...]], ...]
+    message: MESSAGES
 
 
 class TranslatableTag(ABC):  # pylint: disable=too-few-public-methods

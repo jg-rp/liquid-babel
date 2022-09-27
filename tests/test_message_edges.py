@@ -7,7 +7,7 @@ from liquid import StrictUndefined
 
 from liquid.exceptions import UndefinedError
 
-from liquid_babel.filters.translate import register_translation_filters
+from liquid_babel.filters import register_translation_filters
 from liquid_babel.messages.exceptions import TranslationSyntaxError
 from liquid_babel.tags.translate import TranslateTag
 

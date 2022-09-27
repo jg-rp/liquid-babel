@@ -10,12 +10,9 @@ from typing import Any
 from typing import cast
 from typing import Dict
 from typing import Optional
-from typing import Tuple
-from typing import Type
 from typing import Union
 
 from liquid import Context
-from liquid import Environment
 from liquid import Markup
 
 from liquid.expression import Expression
@@ -25,6 +22,7 @@ from liquid.expression import StringLiteral
 from liquid.filter import liquid_filter
 from liquid.filter import int_arg
 
+from liquid_babel.messages.translations import MESSAGES
 from liquid_babel.messages.translations import MessageText
 from liquid_babel.messages.translations import TranslatableFilter
 from liquid_babel.messages.translations import Translations
@@ -36,7 +34,6 @@ __all__ = [
     "NGetText",
     "PGetText",
     "NPGetText",
-    "register_translation_filters",
 ]
 
 
@@ -193,19 +190,19 @@ class Translate(BaseTranslateFilter, TranslatableFilter):
         # Translate our filters into standard *gettext argument specs.
 
         if isinstance(plural, StringLiteral):
-            funcname = "ngettext"
-            message: Tuple[str, ...] = (left.value, plural.value)
+            if isinstance(_context, StringLiteral):
+                funcname = "npgettext"
+                message: MESSAGES = ((_context.value, "c"), left.value, plural.value)
+            else:
+                funcname = "ngettext"
+                message = (left.value, plural.value)
         else:
-            funcname = "gettext"
-            message = (left.value,)
-
-        if isinstance(_context, StringLiteral):
-            funcname = "pgettext" if len(message) == 1 else "npgettext"
-            return MessageText(
-                lineno=lineno,
-                funcname=funcname,
-                message=((_context.value, "c"),) + message,
-            )
+            if isinstance(_context, StringLiteral):
+                funcname = "pgettext"
+                message = ((_context.value, "c"), left.value)
+            else:
+                funcname = "gettext"
+                message = (left.value,)
 
         return MessageText(
             lineno=lineno,
@@ -456,57 +453,3 @@ def _count(val: Any) -> Union[int, None]:
         return int(val)
     except ValueError:
         return None
-
-
-def register_translation_filters(
-    env: Environment,
-    replace: bool = False,
-    *,
-    translations_var: str = "translations",
-    default_translations: Optional[Translations] = None,
-    message_interpolation: bool = True,
-    autoescape_message: bool = False,
-) -> None:
-    """Add gettext-style translation filters to a Liquid environment.
-
-    :param env: The liquid.Environment to add translation filters to.
-    :type env: liquid.Environment.
-    :param replace: If True, existing filters with conflicting names will
-        be replaced. Defaults to False.
-    :type replace: bool
-    :param translations_var: The name of a render context variable that
-        resolves to a gettext ``Translations`` class. Defaults to
-        ``"translations"``.
-    :type translations_var: str
-    :param default_translations: A fallback translations class to use if
-        ``translations_var`` can not be resolves. Defaults to
-        ``NullTranslations``.
-    :type default_translations: NullTranslations
-    :param message_interpolation: If ``True`` (default), perform printf-style
-        string interpolation on the translated message, using keyword arguments
-        passed to the filter function.
-    :type message_interpolation: bool
-    :param autoescape_message: If `True` and the current environment has
-        ``autoescape`` set to ``True``, the filter's left value will be escaped
-        before translation. Defaults to ``False``.
-    :type autoescape_message: bool
-    """
-    default_translations = default_translations or NullTranslations()
-    default_filters: Tuple[Type[BaseTranslateFilter], ...] = (
-        Translate,
-        GetText,
-        NGetText,
-        PGetText,
-        NPGetText,
-    )
-    for _filter in default_filters:
-        if replace or _filter.name not in env.filters:
-            env.add_filter(
-                _filter.name,
-                _filter(
-                    translations_var=translations_var,
-                    default_translations=default_translations,
-                    message_interpolation=message_interpolation,
-                    autoescape_message=autoescape_message,
-                ),
-            )

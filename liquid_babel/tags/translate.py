@@ -58,6 +58,7 @@ from liquid.token import TOKEN_COMMA
 
 from liquid_babel.messages.exceptions import TranslationSyntaxError
 
+from liquid_babel.messages.translations import MESSAGES
 from liquid_babel.messages.translations import MessageText
 from liquid_babel.messages.translations import TranslatableTag
 from liquid_babel.messages.translations import Translations
@@ -420,23 +421,26 @@ class TranslateNode(Node, TranslatableTag):
         if not self.singular:
             return ()
 
-        if self.plural:
-            funcname = "ngettext"
-            message: Tuple[str, ...] = (self.singular, self.plural.text)
-        else:
-            funcname = "gettext"
-            message = (self.singular,)
-
         message_context = self.args.get(self.message_context_var)
-        if isinstance(message_context, StringLiteral):
-            funcname = "pgettext" if len(message) == 1 else "npgettext"
-            return (
-                MessageText(
-                    lineno=self.tok.linenum,
-                    funcname=funcname,
-                    message=((message_context.value, "c"),) + message,
-                ),
-            )
+
+        if self.plural:
+            if isinstance(message_context, StringLiteral):
+                funcname = "npgettext"
+                message: MESSAGES = (
+                    (message_context.value, "c"),
+                    self.singular,
+                    self.plural.text,
+                )
+            else:
+                funcname = "ngettext"
+                message = (self.singular, self.plural.text)
+        else:
+            if isinstance(message_context, StringLiteral):
+                funcname = "pgettext"
+                message = ((message_context.value, "c"), self.singular)
+            else:
+                funcname = "gettext"
+                message = (self.singular,)
 
         return (
             MessageText(

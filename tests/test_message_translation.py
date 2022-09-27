@@ -11,8 +11,7 @@ from typing import List
 from liquid import Environment
 from liquid import Markup
 
-from liquid_babel.filters.translate import register_translation_filters
-
+from liquid_babel.filters import register_translation_filters
 from liquid_babel.tags.translate import TranslateTag
 
 PGETTEXT_AVAILABLE = hasattr(NullTranslations, "pgettext")

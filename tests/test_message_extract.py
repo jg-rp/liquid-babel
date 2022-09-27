@@ -3,16 +3,20 @@
 import io
 import unittest
 
-from babel.messages.extract import extract
+from babel.messages import Catalog
+from babel.messages.extract import extract as babel_extract
 
 from liquid import Environment
 from liquid import Template
 
-from liquid_babel.filters.translate import register_translation_filters
+from liquid_babel.filters import register_translation_filters
+
+from liquid_babel.messages.extract import extract_from_templates
 from liquid_babel.messages.extract import extract_from_template
 from liquid_babel.messages.extract import extract_liquid
-from liquid_babel.tags.translate import TranslateTag
+
 from liquid_babel.messages.translations import DEFAULT_KEYWORDS
+from liquid_babel.tags.translate import TranslateTag
 
 
 class ExtractFromTemplateTestCase(unittest.TestCase):
@@ -561,7 +565,7 @@ class BabelExtractTestCase(unittest.TestCase):
         """
 
         messages = list(
-            extract(
+            babel_extract(
                 extract_liquid,
                 io.StringIO(source),
                 keywords=DEFAULT_KEYWORDS,
@@ -581,4 +585,77 @@ class BabelExtractTestCase(unittest.TestCase):
                     None,
                 ),
             ],
+        )
+
+
+class CatalogExtractTestCase(unittest.TestCase):
+    def test_extract_to_catalog(self) -> None:
+        """Test that we can extract messages from one or more templates
+        into a message catalog.
+        """
+        env = Environment()
+        register_translation_filters(env)
+        env.add_tag(TranslateTag)
+
+        templates = [
+            env.from_string(
+                """
+                {% # Translators: some comment %}
+                {{ 'Hello, World!' | t }}
+                {% comment %}Translators: other comment{% endcomment %}
+                {% translate count: 2 %}
+                    Hello, {{ you }}!
+                {% plural %}
+                    Hello, all!
+                {% endtranslate %}
+                """,
+                name="foo.liquid",
+            ),
+            env.from_string(
+                """
+                {{ 'Hello, World!' | t }}
+                {% comment %}Translators: salutation{% endcomment %}
+                {% translate context: 'greeting', count: 2 %}
+                    Goodbye, {{ you }}!
+                {% plural %}
+                    Goodbye, all!
+                {% endtranslate %}
+                """,
+                name="bar.liquid",
+            ),
+        ]
+
+        catalog = extract_from_templates(*templates)
+        self.assertIsInstance(catalog, Catalog)
+
+        errors = list(catalog.check())  # type: ignore
+        self.assertEqual(len(errors), 0, str(errors))
+
+        messages = list(catalog)
+        self.assertEqual(len(messages), 4)
+
+    def test_strip_comment_tags(self) -> None:
+        """Test that we can strip comment tags."""
+        env = Environment()
+        register_translation_filters(env)
+        env.add_tag(TranslateTag)
+
+        template = env.from_string(
+            """
+                {% # Translators: some comment %}
+                {{ 'Hello, World!' | t }}
+                {% comment %}Translators: other comment{% endcomment %}
+                {% translate count: 2 %}
+                    Hello, {{ you }}!
+                {% plural %}
+                    Hello, all!
+                {% endtranslate %}
+                """,
+            name="foo.liquid",
+        )
+
+        catalog = extract_from_templates(template, strip_comment_tags=True)
+        self.assertEqual(
+            catalog.get("Hello, World!").auto_comments[0],
+            "some comment",
         )

@@ -1,4 +1,7 @@
 """Extract localization messages from Liquid templates."""
+import os
+from pathlib import Path
+
 from typing import Any
 from typing import Dict
 from typing import Iterator
@@ -7,6 +10,8 @@ from typing import Optional
 from typing import TextIO
 from typing import Tuple
 from typing import Union
+
+from babel.messages import Catalog
 
 from liquid import Environment
 from liquid.ast import Node
@@ -18,14 +23,90 @@ from liquid.template import BoundTemplate
 from liquid.token import TOKEN_TAG
 from liquid.builtin.tags.comment_tag import CommentNode
 
-from liquid_babel.filters.translate import register_translation_filters
-from liquid_babel.tags.translate import TranslateTag
-
+from .translations import DEFAULT_COMMENT_TAGS
 from .translations import DEFAULT_KEYWORDS
 from .translations import MessageText
 from .translations import MessageTuple
 from .translations import TranslatableFilter
 from .translations import TranslatableTag
+
+SPEC = Union[
+    Tuple[int, ...],
+    Tuple[Tuple[int, str], int],
+    Tuple[Tuple[int, str], int, int],
+]
+
+
+def extract_from_templates(
+    *templates: BoundTemplate,
+    keywords: Optional[Dict[str, Any]] = None,
+    comment_tags: Optional[List[str]] = None,
+    strip_comment_tags: bool = False,
+) -> Catalog:
+    """Extract messages from one or more templates.
+
+    This function returns a single ``babel.messages.Catalog`` containing
+    messages from all the given templates.
+
+    :param templates: templates to extract messages from.
+    :param keywords: a Babel compatible mapping of translatable "function"
+        names to argument specs. The included translation filters and tag
+        transform their messages into typical *gettext format, regardless
+        of their names.
+    param comment_tags: a list of translator tags to search for and
+        include in extracted messages.
+    param strip_comment_tags: if `True`, remove comment tags from collected
+        message comments.
+    """
+    keywords = keywords or DEFAULT_KEYWORDS
+    comment_tags = comment_tags or DEFAULT_COMMENT_TAGS
+    catalog = Catalog()
+    for template in templates:
+        for lineno, funcname, messages, comments in extract_from_template(
+            template, keywords, comment_tags
+        ):
+            # A partial reimplementation of Babel's messages.extract function.
+            # See https://github.com/python-babel/babel/blob/master/babel/messages/extract.py#L262
+            spec: SPEC = keywords[funcname] or (1,)
+            if not isinstance(messages, (list, tuple)):
+                messages = (messages,)
+            if not messages:
+                continue
+            if len(spec) != len(messages):
+                continue
+
+            # Assumes context is the first item in the spec
+            if isinstance(spec[0], tuple):
+                # context aware message
+                context = messages[spec[0][0] - 1][0]
+                message = [messages[i - 1] for i in spec[1:]]
+            else:
+                context = None
+                message = [messages[i - 1] for i in spec if isinstance(i, int)]
+
+            if not message[0]:
+                # Empty message
+                continue
+
+            if strip_comment_tags:
+                comments = _strip_comment_tags(comments, comment_tags)
+
+            # Use the template's path if it has one
+            template_name = template.name
+            if isinstance(template.path, Path):
+                template_name = str(template.path.joinpath(template_name))
+            elif isinstance(template.path, str):
+                template_name = os.path.join(template.path, template_name)
+
+            catalog.add(
+                message[0] if len(message) == 1 else message,
+                "",
+                [(template_name, lineno)],
+                auto_comments=comments,
+                context=context,
+            )
+
+    return catalog
 
 
 def extract_liquid(
@@ -53,6 +134,10 @@ def extract_liquid(
     to extract messages from an existing template bound to an existing
     environment.
     """
+    # pylint: disable=import-outside-toplevel
+    from liquid_babel.filters import register_translation_filters
+    from liquid_babel.tags.translate import TranslateTag
+
     env = Environment(**options or {})
     register_translation_filters(env, replace=False)
     env.add_tag(TranslateTag)
@@ -70,7 +155,7 @@ def extract_from_template(
     comment_tags: Optional[List[str]] = None,
 ) -> Iterator[MessageTuple]:
     """Extract translation messages from a Liquid template."""
-    _comment_tags = comment_tags or []
+    _comment_tags = comment_tags or DEFAULT_COMMENT_TAGS
     _comments: List[Tuple[int, str]] = []
     _keywords = keywords or DEFAULT_KEYWORDS
 
@@ -150,3 +235,15 @@ def _extract_from_filters(
             message = filter_func.message(expression.expression, _filter, lineno)  # type: ignore
             if message:
                 yield message
+
+
+def _strip_comment_tags(comments: List[str], tags: List[str]) -> List[str]:
+    """Similar to Babel's messages.extract._strip_comment_tags."""
+
+    def _strip(line: str) -> str:
+        for tag in tags:
+            if line.startswith(tag):
+                return line[len(tag) :].strip()
+        return line
+
+    return [_strip(comment) for comment in comments]
