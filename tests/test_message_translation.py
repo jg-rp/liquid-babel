@@ -233,7 +233,7 @@ class TranslateMessagesTestCase(unittest.TestCase):
     def test_translate_tag_ngettext(self) -> None:
         """Test that we can do ngettext with the translate tag."""
         source = """
-            {%- translate you: 'World', count: 2 -%}
+            {%- translate, you: 'World', count: 2 -%}
                 Hello, {{ you }}!
             {%- plural -%}
                 Hello, {{ you }}s!

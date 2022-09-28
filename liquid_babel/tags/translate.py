@@ -90,158 +90,6 @@ class MessageBlock(NamedTuple):
     vars: List[str]
 
 
-class TranslateTag(Tag):
-    """The "Trans" or "Translate" tag."""
-
-    block = True
-
-    # Override these to change the tag's name from "translate" to "t"
-    # or "trans", for example.
-    name = TAG_TRANS
-    end = TAG_ENDTRANS
-    plural_name = TAG_PLURAL
-
-    re_whitespace = re.compile(r"\s*\n\s*")
-
-    # Override this to disable argument-less filters in translation
-    # expression arguments.
-    simple_filters = True
-
-    # Override this to disable message whitespace normalization.
-    trim_messages = True
-
-    def __init__(self, env: Environment):
-        super().__init__(env)
-        self.parser = get_parser(self.env)
-
-    def parse(self, stream: TokenStream) -> TranslateNode:
-        expect(stream, TOKEN_TAG, value=self.name)
-        tok = stream.current
-        stream.next_token()
-        args = {}
-
-        if stream.current.type == TOKEN_EXPRESSION:
-            expr_stream = ExprTokenStream(
-                tokenize_filtered_expression(stream.current.value)
-            )
-            while expr_stream.current[1] != TOKEN_EOF:
-                key, expr = self.parse_argument(expr_stream)
-                args[key] = expr
-
-                if expr_stream.current[1] == TOKEN_COMMA:
-                    expr_stream.next_token()  # Eat comma
-
-            stream.next_token()
-
-        message_block = self.parser.parse_block(stream, (self.end, self.plural_name))
-        singular = self.parse_message_block(message_block)
-
-        if (
-            stream.current.type == TOKEN_TAG
-            and stream.current.value == self.plural_name
-        ):
-            stream.next_token()
-            plural_block = self.parser.parse_block(stream, (self.end,))
-            plural = self.parse_message_block(plural_block)
-        else:
-            plural = None
-
-        expect(stream, TOKEN_TAG, value=self.end)
-
-        return TranslateNode(
-            tok=tok,
-            args=args,
-            singular=singular,
-            plural=plural,
-        )
-
-    def parse_argument(self, stream: ExprTokenStream) -> TransKeywordArg:
-        """Parse a keyword argument from a stream of tokens."""
-        key = str(parse_unchained_identifier(stream))
-        next(stream)
-
-        stream.expect(TOKEN_COLON)
-        next(stream)  # Eat colon
-
-        # The argument value could be the left-hand side of a simple filter.
-        left = parse_filtered_obj(stream)
-        next(stream)
-        if stream.current[1] == TOKEN_PIPE:
-            if self.simple_filters:
-                next(stream)
-                _filters = self.parse_no_arg_filters(stream)
-                return TransKeywordArg(key, FilteredExpression(left, _filters))
-
-            raise TranslationSyntaxError(
-                f"unexpected filtered '{self.name}' tag argument"
-            )
-
-        return TransKeywordArg(key, left)
-
-    def parse_no_arg_filters(self, stream: ExprTokenStream) -> List[Filter]:
-        """Parse a stream of tokens as an argument-less filter chain."""
-        filters: List[Filter] = []
-        while stream.current[1] != TOKEN_EOF and stream.current[1] != TOKEN_COMMA:
-            if stream.current[1] == TOKEN_COLON:
-                raise TranslationSyntaxError(
-                    f"unexpected filter arguments in '{self.name}' tag"
-                )
-            stream.expect(TOKEN_IDENTIFIER)
-            name = stream.current[2]
-            next(stream)
-            filters.append(Filter(name, []))
-
-        assert stream.current[1] == TOKEN_EOF or stream.current[1] == TOKEN_COMMA
-        return filters
-
-    def parse_message_block(self, block: BlockNode) -> MessageBlock:
-        """Return message text and variables from a translation block."""
-        message_text: List[str] = []
-        message_vars: List[str] = []
-        for node in block.statements:
-            if isinstance(node, LiteralNode):
-                message_text.append(node.tok.value.replace("%", "%%"))
-            elif isinstance(node, StatementNode):
-                if (
-                    isinstance(node.expression, FilteredExpression)
-                    and isinstance(node.expression.expression, Identifier)
-                    and isinstance(
-                        node.expression.expression.path[0], IdentifierPathElement
-                    )
-                    and isinstance(node.expression.expression.path[0].value, str)
-                ):
-                    if len(node.expression.expression.path) > 1:
-                        raise TranslationSyntaxError(
-                            f"unexpected variable property access '{node.expression.expression}'",
-                            linenum=node.token().linenum,
-                        )
-
-                    var = node.expression.expression.path[0].value
-                    if node.expression.filters:
-                        raise TranslationSyntaxError(
-                            f"unexpected filter on translation variable '{var}'",
-                            linenum=node.token().linenum,
-                        )
-                    message_text.append(f"%({var})s")
-                    message_vars.append(var)
-                else:
-                    raise TranslationSyntaxError(
-                        f"expected a translation variable, found '{node.expression}'",
-                        linenum=node.token().linenum,
-                    )
-            else:
-                raise TranslationSyntaxError(
-                    f"unexpected tag '{node.token().value}' in translation text",
-                    linenum=node.token().linenum,
-                )
-
-        msg = "".join(message_text)
-        if self.trim_messages:
-            msg = self.re_whitespace.sub(" ", msg.strip())
-
-        return MessageBlock(block, msg, message_vars)
-
-
 class TranslateNode(Node, TranslatableTag):
     """Parse tree node for the Translation block tag."""
 
@@ -449,3 +297,160 @@ class TranslateNode(Node, TranslatableTag):
                 message=message,
             ),
         )
+
+
+class TranslateTag(Tag):
+    """The "Trans" or "Translate" tag."""
+
+    block = True
+    node_class = TranslateNode
+
+    # Override these to change the tag's name from "translate" to "t"
+    # or "trans", for example.
+    name = TAG_TRANS
+    end = TAG_ENDTRANS
+    plural_name = TAG_PLURAL
+
+    re_whitespace = re.compile(r"\s*\n\s*")
+
+    # Override this to disable argument-less filters in translation
+    # expression arguments.
+    simple_filters = True
+
+    # Override this to disable message whitespace normalization.
+    trim_messages = True
+
+    def __init__(self, env: Environment):
+        super().__init__(env)
+        self.parser = get_parser(self.env)
+
+    def parse(self, stream: TokenStream) -> TranslateNode:
+        expect(stream, TOKEN_TAG, value=self.name)
+        tok = stream.current
+        stream.next_token()
+        args = {}
+
+        if stream.current.type == TOKEN_EXPRESSION:
+            expr_stream = ExprTokenStream(
+                tokenize_filtered_expression(stream.current.value)
+            )
+
+            if expr_stream.current[1] == TOKEN_COMMA:
+                expr_stream.next_token()  # Eat leading comma
+
+            while expr_stream.current[1] != TOKEN_EOF:
+                key, expr = self.parse_argument(expr_stream)
+                args[key] = expr
+
+                if expr_stream.current[1] == TOKEN_COMMA:
+                    expr_stream.next_token()  # Eat comma
+
+            stream.next_token()
+
+        message_block = self.parser.parse_block(stream, (self.end, self.plural_name))
+        singular = self.parse_message_block(message_block)
+
+        if (
+            stream.current.type == TOKEN_TAG
+            and stream.current.value == self.plural_name
+        ):
+            stream.next_token()
+            plural_block = self.parser.parse_block(stream, (self.end,))
+            plural = self.parse_message_block(plural_block)
+        else:
+            plural = None
+
+        expect(stream, TOKEN_TAG, value=self.end)
+
+        return self.node_class(
+            tok=tok,
+            args=args,
+            singular=singular,
+            plural=plural,
+        )
+
+    def parse_argument(self, stream: ExprTokenStream) -> TransKeywordArg:
+        """Parse a keyword argument from a stream of tokens."""
+        key = str(parse_unchained_identifier(stream))
+        next(stream)
+
+        stream.expect(TOKEN_COLON)
+        next(stream)  # Eat colon
+
+        # The argument value could be the left-hand side of a simple filter.
+        left = parse_filtered_obj(stream)
+        next(stream)
+        if stream.current[1] == TOKEN_PIPE:
+            if self.simple_filters:
+                next(stream)
+                _filters = self.parse_no_arg_filters(stream)
+                return TransKeywordArg(key, FilteredExpression(left, _filters))
+
+            raise TranslationSyntaxError(
+                f"unexpected filtered '{self.name}' tag argument"
+            )
+
+        return TransKeywordArg(key, left)
+
+    def parse_no_arg_filters(self, stream: ExprTokenStream) -> List[Filter]:
+        """Parse a stream of tokens as an argument-less filter chain."""
+        filters: List[Filter] = []
+        while stream.current[1] != TOKEN_EOF and stream.current[1] != TOKEN_COMMA:
+            if stream.current[1] == TOKEN_COLON:
+                raise TranslationSyntaxError(
+                    f"unexpected filter arguments in '{self.name}' tag"
+                )
+            stream.expect(TOKEN_IDENTIFIER)
+            name = stream.current[2]
+            next(stream)
+            filters.append(Filter(name, []))
+
+        assert stream.current[1] == TOKEN_EOF or stream.current[1] == TOKEN_COMMA
+        return filters
+
+    def parse_message_block(self, block: BlockNode) -> MessageBlock:
+        """Return message text and variables from a translation block."""
+        message_text: List[str] = []
+        message_vars: List[str] = []
+        for node in block.statements:
+            if isinstance(node, LiteralNode):
+                message_text.append(node.tok.value.replace("%", "%%"))
+            elif isinstance(node, StatementNode):
+                if (
+                    isinstance(node.expression, FilteredExpression)
+                    and isinstance(node.expression.expression, Identifier)
+                    and isinstance(
+                        node.expression.expression.path[0], IdentifierPathElement
+                    )
+                    and isinstance(node.expression.expression.path[0].value, str)
+                ):
+                    if len(node.expression.expression.path) > 1:
+                        raise TranslationSyntaxError(
+                            f"unexpected variable property access '{node.expression.expression}'",
+                            linenum=node.token().linenum,
+                        )
+
+                    var = node.expression.expression.path[0].value
+                    if node.expression.filters:
+                        raise TranslationSyntaxError(
+                            f"unexpected filter on translation variable '{var}'",
+                            linenum=node.token().linenum,
+                        )
+                    message_text.append(f"%({var})s")
+                    message_vars.append(var)
+                else:
+                    raise TranslationSyntaxError(
+                        f"expected a translation variable, found '{node.expression}'",
+                        linenum=node.token().linenum,
+                    )
+            else:
+                raise TranslationSyntaxError(
+                    f"unexpected tag '{node.token().value}' in translation text",
+                    linenum=node.token().linenum,
+                )
+
+        msg = "".join(message_text)
+        if self.trim_messages:
+            msg = self.re_whitespace.sub(" ", msg.strip())
+
+        return MessageBlock(block, msg, message_vars)

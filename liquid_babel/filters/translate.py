@@ -38,7 +38,25 @@ __all__ = [
 
 
 class BaseTranslateFilter(ABC):
-    """Base class for the default translation filters."""
+    """Base class for the default translation filters.
+
+    :param translations_var: The name of a render context variable that
+        resolves to a gettext ``Translations`` class. Defaults to
+        ``"translations"``.
+    :type translations_var: str
+    :param default_translations: A fallback translations class to use if
+        ``translations_var`` can not be resolves. Defaults to
+        ``NullTranslations``.
+    :type default_translations: NullTranslations
+    :param message_interpolation: If ``True`` (default), perform printf-style
+        string interpolation on the translated message, using keyword arguments
+        passed to the filter function.
+    :type message_interpolation: bool
+    :param autoescape_message: If `True` and the current environment has
+        ``autoescape`` set to ``True``, the filter's left value will be escaped
+        before translation. Defaults to ``False``.
+    :type autoescape_message: bool
+    """
 
     name = "base"
     re_vars = re.compile(r"(?<!%)%\((\w+)\)s")
@@ -95,23 +113,6 @@ class Translate(BaseTranslateFilter, TranslatableFilter):
 
     Depending on the keyword arguments provided when the resulting filter
     is called, it could behave like gettext, ngettext, pgettext or npgettext.
-
-    :param translations_var: The name of a render context variable that
-        resolves to a gettext ``Translations`` class. Defaults to
-        ``"translations"``.
-    :type translations_var: str
-    :param default_translations: A fallback translations class to use if
-        ``translations_var`` can not be resolves. Defaults to
-        ``NullTranslations``.
-    :type default_translations: NullTranslations
-    :param message_interpolation: If ``True`` (default), perform printf-style
-        string interpolation on the translated message, using keyword arguments
-        passed to the filter function.
-    :type message_interpolation: bool
-    :param autoescape_message: If `True` and the current environment has
-        ``autoescape`` set to ``True``, the filter's left value will be escaped
-        before translation. Defaults to ``False``.
-    :type autoescape_message: bool
     """
 
     name = "t"
@@ -196,6 +197,10 @@ class Translate(BaseTranslateFilter, TranslatableFilter):
             else:
                 funcname = "ngettext"
                 message = (left.value, plural.value)
+        elif plural is not None:
+            # Don't attempt to extract any messages if plural is given
+            # but not a string literal
+            return None
         else:
             if isinstance(_context, StringLiteral):
                 funcname = "pgettext"
