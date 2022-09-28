@@ -4,10 +4,12 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-python-liquid = "*"
 babel = "*"
 pytz = "*"
 python-dateutil = "*"
+markupsafe = "*"
+python-liquid = "*"
+typing-extensions = "*"
 
 [dev-packages]
 black = "*"
@@ -21,8 +23,8 @@ twine = "*"
 build = "*"
 liquid-babel = {editable = true, path = "."}
 ipython = "*"
-python-liquid-extra = "*"
 types-python-dateutil = "*"
+tox = "*"
 
 [requires]
 python_version = "3.10"
