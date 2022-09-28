@@ -1,5 +1,11 @@
 # Python Liquid Babel Change Log
 
+## Version 0.3.0
+
+**Features**
+
+- New translation tags and message extraction. ([docs](https://jg-rp.github.io/liquid/babel/introduction#translations), [source](https://github.com/jg-rp/liquid-babel/tree/main/liquid_babel/messages))
+
 ## Version 0.2.0
 
 **Features**
