@@ -1,5 +1,11 @@
 # Python Liquid Babel Change Log
 
+## Version 1.0.0
+
+**Features**
+
+- New `unit` formatting filter.
+
 ## Version 0.3.0
 
 **Features**
