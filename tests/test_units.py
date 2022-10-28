@@ -131,7 +131,7 @@ class UnitFilterTestCase(unittest.TestCase):
         env = Environment()
         env.add_filter("unit", unit)
         template = env.from_string(
-            "{{ 32.5 | unit: 'ton', denominator: 15, denominator_unit: 'hour'  }}"
+            "{{ 32.5 | unit: 'ton', denominator: 15, denominator_unit: 'hour' }}"
         )
         result = template.render(locale="en")
         self.assertEqual(result, "32.5 tons per 15 hours")

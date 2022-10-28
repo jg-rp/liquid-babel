@@ -4,7 +4,7 @@
 
 **Features**
 
-- New `unit` formatting filter.
+- New `unit` formatting filter. ([docs](https://jg-rp.github.io/liquid/babel/filters#unit), [source](https://github.com/jg-rp/liquid-babel/blob/main/liquid_babel/filters/unit.py))
 
 ## Version 0.3.0
 
