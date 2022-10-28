@@ -32,6 +32,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: "pip"
+          cache-dependency-path: "**/setup.cfg"
       - name: cache mypy
         uses: actions/cache@v3
         with:
