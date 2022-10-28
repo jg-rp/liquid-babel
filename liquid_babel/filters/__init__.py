@@ -40,6 +40,7 @@ __all__ = [
     "npgettext",
     "register_translation_filters",
     "Unit",
+    "unit",
 ]
 
 # For convenience. Use defaults.
