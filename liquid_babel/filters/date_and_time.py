@@ -3,29 +3,22 @@
 from datetime import date
 from datetime import datetime
 from datetime import time
-
-from typing import cast
 from typing import Optional
 from typing import Union
-
-from babel import dates
-from babel import Locale
-from babel import UnknownLocaleError
-
-from dateutil import parser
+from typing import cast
 
 import pytz
-
+from babel import Locale
+from babel import UnknownLocaleError
+from babel import dates
+from dateutil import parser
 from liquid import Context
 from liquid.context import is_undefined
-
 from liquid.exceptions import FilterArgumentError
-
 from liquid.filter import liquid_filter
 from liquid.filter import with_context
 
 
-# pylint: disable=too-few-public-methods too-many-instance-attributes
 @with_context
 class DateTime:
     """A Liquid filter for formatting datetime objects.
@@ -49,7 +42,8 @@ class DateTime:
         can not be resolved. Defaults to ``"medium"``.
     :type default_format: str
     :param input_timezone_var: The name of a render context variable that resolves to
-        a timezone for parsing datetimes entered as strings. Defaults to `"input_timezone"`.
+        a timezone for parsing datetimes entered as strings. Defaults to
+        `"input_timezone"`.
     :type input_timezone_var: str
     :param default_input_timezone: A fallback timezone to use if `input_timezone_var`
         can not be resolved. Defaults to `"UTC"`.
@@ -84,14 +78,13 @@ class DateTime:
         self.input_timezone_var = input_timezone_var
         self.default_input_timezone = pytz.timezone(default_input_timezone)
 
-    # pylint: disable=redefined-builtin
     @liquid_filter
-    def __call__(
+    def __call__(  # noqa: D102
         self,
         left: object,
         *,
         context: Context,
-        format: Optional[str] = None,
+        format: Optional[str] = None,  # noqa: A002
     ) -> str:
         locale = self._resolve_locale(
             context,

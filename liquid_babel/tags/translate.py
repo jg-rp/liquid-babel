@@ -4,12 +4,9 @@ from __future__ import annotations
 import itertools
 import re
 import sys
-
 from gettext import NullTranslations
-
-from typing import Any
 from typing import TYPE_CHECKING
-from typing import cast
+from typing import Any
 from typing import Dict
 from typing import Iterable
 from typing import List
@@ -17,47 +14,37 @@ from typing import NamedTuple
 from typing import Optional
 from typing import TextIO
 from typing import Tuple
+from typing import cast
 
 from liquid import Markup
-
+from liquid.ast import BlockNode
 from liquid.ast import ChildNode
 from liquid.ast import Node
-from liquid.ast import BlockNode
-
 from liquid.builtin.literal import LiteralNode
 from liquid.builtin.statement import StatementNode
-
 from liquid.expression import Filter
 from liquid.expression import FilteredExpression
 from liquid.expression import Identifier
 from liquid.expression import IdentifierPathElement
 from liquid.expression import StringLiteral
-
 from liquid.expressions.common import parse_unchained_identifier
 from liquid.expressions.filtered.lex import tokenize as tokenize_filtered_expression
 from liquid.expressions.filtered.parse import parse_obj as parse_filtered_obj
-
 from liquid.expressions.stream import TokenStream as ExprTokenStream
-
 from liquid.limits import to_int
-
 from liquid.parse import expect
 from liquid.parse import get_parser
-
-from liquid.stream import TokenStream
 from liquid.tag import Tag
-
-from liquid.token import Token
-from liquid.token import TOKEN_TAG
+from liquid.token import TOKEN_COLON
+from liquid.token import TOKEN_COMMA
+from liquid.token import TOKEN_EOF
 from liquid.token import TOKEN_EXPRESSION
 from liquid.token import TOKEN_IDENTIFIER
 from liquid.token import TOKEN_PIPE
-from liquid.token import TOKEN_COLON
-from liquid.token import TOKEN_EOF
-from liquid.token import TOKEN_COMMA
+from liquid.token import TOKEN_TAG
+from liquid.token import Token
 
 from liquid_babel.messages.exceptions import TranslationSyntaxError
-
 from liquid_babel.messages.translations import MESSAGES
 from liquid_babel.messages.translations import MessageText
 from liquid_babel.messages.translations import TranslatableTag
@@ -65,9 +52,10 @@ from liquid_babel.messages.translations import Translations
 from liquid_babel.messages.translations import to_liquid_string
 
 if TYPE_CHECKING:  # pragma: no cover
-    from liquid.context import Context
     from liquid import Environment
+    from liquid.context import Context
     from liquid.expression import Expression
+    from liquid.stream import TokenStream
 
 
 TAG_TRANS = sys.intern("translate")
@@ -87,7 +75,7 @@ class MessageBlock(NamedTuple):
 
     block: BlockNode
     text: str
-    vars: List[str]
+    vars: List[str]  # noqa: A003
 
 
 class TranslateNode(Node, TranslatableTag):
@@ -121,7 +109,7 @@ class TranslateNode(Node, TranslatableTag):
         self.singular_block, self.singular, self.singular_vars = singular
         self.plural = plural
 
-    def render_to_output(
+    def render_to_output(  # noqa: D102
         self,
         context: Context,
         buffer: TextIO,
@@ -142,7 +130,7 @@ class TranslateNode(Node, TranslatableTag):
         buffer.write(self.format_message(context, message_text, message_vars))
         return True
 
-    async def render_to_output_async(
+    async def render_to_output_async(  # noqa: D102
         self,
         context: Context,
         buffer: TextIO,
@@ -172,11 +160,13 @@ class TranslateNode(Node, TranslatableTag):
 
     def resolve_count(
         self,
-        context: Context,  # pylint: disable=unused-argument
+        context: Context,  # noqa: ARG002
         block_scope: Dict[str, object],
     ) -> Optional[int]:
-        """Return a message count, if any, using the current render context and/or
-        the translation's block scope."""
+        """Return a message count.
+
+        Uses the current render context and/or the translation's block scope.
+        """
         try:
             return to_int(block_scope.get(self.message_count_var, 1))  # defaults to 1
         except ValueError:
@@ -184,11 +174,13 @@ class TranslateNode(Node, TranslatableTag):
 
     def resolve_message_context(
         self,
-        context: Context,  # pylint: disable=unused-argument
+        context: Context,  # noqa: ARG002
         block_scope: Dict[str, object],
     ) -> Optional[str]:
-        """Return the message context string, if any, using the current render
-        context and/or the translation block scope."""
+        """Return the message context string.
+
+        Uses the current render context and/or the translation block scope.
+        """
         message_context = block_scope.pop(self.message_context_var, None)
         if message_context:
             return (
@@ -238,7 +230,7 @@ class TranslateNode(Node, TranslatableTag):
 
         return message_text % _vars
 
-    def children(self) -> List[ChildNode]:
+    def children(self) -> List[ChildNode]:  # noqa: D102
         children = [
             ChildNode(
                 linenum=self.tok.linenum,
@@ -265,7 +257,7 @@ class TranslateNode(Node, TranslatableTag):
 
         return children
 
-    def messages(self) -> Iterable[MessageText]:
+    def messages(self) -> Iterable[MessageText]:  # noqa: D102
         if not self.singular:
             return ()
 
@@ -282,13 +274,12 @@ class TranslateNode(Node, TranslatableTag):
             else:
                 funcname = "ngettext"
                 message = (self.singular, self.plural.text)
+        elif isinstance(message_context, StringLiteral):
+            funcname = "pgettext"
+            message = ((message_context.value, "c"), self.singular)
         else:
-            if isinstance(message_context, StringLiteral):
-                funcname = "pgettext"
-                message = ((message_context.value, "c"), self.singular)
-            else:
-                funcname = "gettext"
-                message = (self.singular,)
+            funcname = "gettext"
+            message = (self.singular,)
 
         return (
             MessageText(
@@ -324,7 +315,7 @@ class TranslateTag(Tag):
         super().__init__(env)
         self.parser = get_parser(self.env)
 
-    def parse(self, stream: TokenStream) -> TranslateNode:
+    def parse(self, stream: TokenStream) -> TranslateNode:  # noqa: D102
         expect(stream, TOKEN_TAG, value=self.name)
         tok = stream.current
         stream.next_token()
@@ -426,7 +417,8 @@ class TranslateTag(Tag):
                 ):
                     if len(node.expression.expression.path) > 1:
                         raise TranslationSyntaxError(
-                            f"unexpected variable property access '{node.expression.expression}'",
+                            "unexpected variable property access "
+                            f"'{node.expression.expression}'",
                             linenum=node.token().linenum,
                         )
 

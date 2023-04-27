@@ -1,9 +1,7 @@
 """Test cases for the currency filter."""
-# pylint: disable=missing-class-docstring,missing-function-docstring
 import unittest
 
 from babel import UnknownLocaleError
-
 from liquid import Environment
 
 from liquid_babel.filters import Currency
@@ -14,7 +12,6 @@ from liquid_babel.filters import money_without_currency
 from liquid_babel.filters import money_without_trailing_zeros
 
 
-# pylint: disable=too-many-public-methods
 class CurrencyFilterTestCase(unittest.TestCase):
     def test_default_currency_code_and_locale(self) -> None:
         """Test that the default currency code is USD and locale is en_US."""
@@ -100,7 +97,7 @@ class CurrencyFilterTestCase(unittest.TestCase):
         env.add_filter("currency", currency)
         template = env.from_string("{{ 1.99 | currency }}")
         result = template.render(currency_format="bad format")
-        self.assertEqual(result, "bad format1.99")
+        self.assertEqual(result, "bad format")
 
     def test_valid_string_left_value(self) -> None:
         """Test that we parse strings as decimals."""
@@ -111,7 +108,7 @@ class CurrencyFilterTestCase(unittest.TestCase):
         self.assertEqual(result, "$1.99")
 
     def test_invalid_string_left_value(self) -> None:
-        """Test that invalid decimals default to zero"""
+        """Test that invalid decimals default to zero."""
         env = Environment()
         env.add_filter("currency", currency)
         template = env.from_string("{{ 'not a number' | currency }}")
@@ -151,7 +148,7 @@ class CurrencyFilterTestCase(unittest.TestCase):
         self.assertEqual(result, "$10.00")
 
     def test_money_with_currency(self) -> None:
-        """Test that the convenience money_with_currency filter formats similarly to shopify's."""
+        """Test that the money_with_currency filter is similar to shopify's."""
         env = Environment()
         env.add_filter("money_with_currency", money_with_currency)
         template = env.from_string("{{ 10 | money_with_currency }}")
@@ -168,8 +165,7 @@ class CurrencyFilterTestCase(unittest.TestCase):
         self.assertEqual(result, "10.00")
 
     def test_money_without_trailing_zeros(self) -> None:
-        """Test that the convenience money_without_trailing_zeros filter formats similarly
-        to shopify's."""
+        """Test that money_without_trailing_zeros filter is similar to shopify's."""
         env = Environment()
         env.add_filter("money_without_trailing_zeros", money_without_trailing_zeros)
         template = env.from_string("{{ 10 | money_without_trailing_zeros }}")

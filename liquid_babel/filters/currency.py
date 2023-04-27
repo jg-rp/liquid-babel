@@ -1,23 +1,19 @@
 """A currency formatting filter for Python Liquid."""
 from decimal import Decimal
-
-from typing import cast
 from typing import Optional
 from typing import Union
+from typing import cast
 
-from babel import numbers
 from babel import Locale
 from babel import UnknownLocaleError
-
+from babel import numbers
 from liquid import Context
 from liquid.context import is_undefined
-
 from liquid.filter import liquid_filter
 from liquid.filter import num_arg
 from liquid.filter import with_context
 
 
-# pylint: disable=too-few-public-methods too-many-instance-attributes
 @with_context
 class Currency:
     """A Liquid filter for formatting currency values.
@@ -76,7 +72,7 @@ class Currency:
         self.default_input_locale = Locale.parse(default_input_locale)
 
     @liquid_filter
-    def __call__(
+    def __call__(  # noqa: D102
         self,
         left: object,
         *,
@@ -99,16 +95,13 @@ class Currency:
             default=self.default_currency_code,
         )
 
-        return cast(
-            str,
-            numbers.format_currency(
-                _parse_decimal(left, input_locale),
-                currency_code,
-                format=_format,
-                locale=locale,
-                group_separator=group_separator,
-                currency_digits=self.currency_digits,
-            ),
+        return numbers.format_currency(
+            _parse_decimal(left, input_locale),
+            currency_code,
+            format=_format,
+            locale=locale,
+            group_separator=group_separator,
+            currency_digits=self.currency_digits,
         )
 
     def _resolve_locale(
@@ -132,7 +125,7 @@ class Currency:
 def _parse_decimal(val: object, locale: Union[str, Locale]) -> Decimal:
     if isinstance(val, str):
         try:
-            return cast(Decimal, numbers.parse_decimal(val, locale))
+            return numbers.parse_decimal(val, locale)
         except numbers.NumberFormatError:
             return Decimal(0)
 

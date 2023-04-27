@@ -1,7 +1,6 @@
 """Translation related objects used by filters, tags and extraction functions."""
 from abc import ABC
 from abc import abstractmethod
-
 from typing import Any
 from typing import Iterable
 from typing import List
@@ -10,15 +9,14 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
+from liquid import Markup
+from liquid import escape
 from typing_extensions import Protocol
 
-from liquid import escape
-from liquid import Markup
-
 try:
-    from liquid import soft_str  # type: ignore
+    from liquid import soft_str
 except ImportError:  # pragma: no cover
-    soft_str = str  # pylint: disable=invalid-name
+    soft_str = str  # type: ignore
 
 from liquid.expression import Expression
 from liquid.expression import Filter
@@ -39,8 +37,10 @@ DEFAULT_COMMENT_TAGS = [
 
 
 class Translations(Protocol):
-    """The object expected to be available in a render context for
-    translating message text.
+    """Message catalog interface.
+
+    An object implementing this protocol is expected to be available in
+    a render context.
 
     Could be a `GNUTranslations` instance from the `gettext` module,
     a Babel `Translations` object, or any object implementing `gettext`,
@@ -85,7 +85,7 @@ class MessageText(NamedTuple):
     message: MESSAGES
 
 
-class TranslatableTag(ABC):  # pylint: disable=too-few-public-methods
+class TranslatableTag(ABC):
     """Base class for translatable tags."""
 
     @abstractmethod
@@ -93,7 +93,7 @@ class TranslatableTag(ABC):  # pylint: disable=too-few-public-methods
         """Generate a sequence of translation messages."""
 
 
-class TranslatableFilter(ABC):  # pylint: disable=too-few-public-methods
+class TranslatableFilter(ABC):
     """Base class for translatable filters."""
 
     @abstractmethod

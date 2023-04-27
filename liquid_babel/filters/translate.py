@@ -1,26 +1,21 @@
 """Translation filters."""
 import re
-
 from abc import ABC
 from abc import abstractmethod
-
 from gettext import NullTranslations
-
 from typing import Any
-from typing import cast
 from typing import Dict
 from typing import Optional
 from typing import Union
+from typing import cast
 
 from liquid import Context
 from liquid import Markup
-
 from liquid.expression import Expression
 from liquid.expression import Filter
 from liquid.expression import StringLiteral
-
-from liquid.filter import liquid_filter
 from liquid.filter import int_arg
+from liquid.filter import liquid_filter
 
 from liquid_babel.messages.translations import MESSAGES
 from liquid_babel.messages.translations import MessageText
@@ -107,7 +102,6 @@ class BaseTranslateFilter(ABC):
         )
 
 
-# pylint: disable=too-few-public-methods
 class Translate(BaseTranslateFilter, TranslatableFilter):
     """A Liquid filter for translating strings to other languages.
 
@@ -118,7 +112,7 @@ class Translate(BaseTranslateFilter, TranslatableFilter):
     name = "t"
 
     @liquid_filter
-    def __call__(
+    def __call__(  # noqa: D102
         self,
         __left: object,
         __message_context: object = None,
@@ -155,18 +149,16 @@ class Translate(BaseTranslateFilter, TranslatableFilter):
                 )
             else:
                 text = translations.ngettext(__left, plural, n)
+        elif __message_context is not None:
+            text = translations.pgettext(
+                to_liquid_string(
+                    __message_context,
+                    autoescape=auto_escape and self.autoescape_message,
+                ),
+                __left,
+            )
         else:
-            if __message_context is not None:
-                text = translations.pgettext(
-                    to_liquid_string(
-                        __message_context,
-                        autoescape=auto_escape and self.autoescape_message,
-                    ),
-                    __left,
-                )
-
-            else:
-                text = translations.gettext(__left)
+            text = translations.gettext(__left)
 
         if auto_escape:
             text = Markup(text)
@@ -176,7 +168,7 @@ class Translate(BaseTranslateFilter, TranslatableFilter):
 
         return text
 
-    def message(
+    def message(  # noqa: D102
         self,
         left: Expression,
         _filter: Filter,
@@ -201,13 +193,12 @@ class Translate(BaseTranslateFilter, TranslatableFilter):
             # Don't attempt to extract any messages if plural is given
             # but not a string literal
             return None
+        elif isinstance(_context, StringLiteral):
+            funcname = "pgettext"
+            message = ((_context.value, "c"), left.value)
         else:
-            if isinstance(_context, StringLiteral):
-                funcname = "pgettext"
-                message = ((_context.value, "c"), left.value)
-            else:
-                funcname = "gettext"
-                message = (left.value,)
+            funcname = "gettext"
+            message = (left.value,)
 
         return MessageText(
             lineno=lineno,
@@ -222,7 +213,7 @@ class GetText(BaseTranslateFilter, TranslatableFilter):
     name = "gettext"
 
     @liquid_filter
-    def __call__(
+    def __call__(  # noqa: D102
         self,
         __left: object,
         *,
@@ -246,7 +237,7 @@ class GetText(BaseTranslateFilter, TranslatableFilter):
 
         return text
 
-    def message(
+    def message(  # noqa: D102
         self,
         left: Expression,
         _filter: Filter,
@@ -268,7 +259,7 @@ class NGetText(GetText):
     name = "ngettext"
 
     @liquid_filter
-    def __call__(
+    def __call__(  # noqa: D102
         self,
         __left: object,
         __plural: str,
@@ -301,7 +292,7 @@ class NGetText(GetText):
 
         return text
 
-    def message(
+    def message(  # noqa: D102
         self,
         left: Expression,
         _filter: Filter,
@@ -328,7 +319,7 @@ class PGetText(BaseTranslateFilter, TranslatableFilter):
     name = "pgettext"
 
     @liquid_filter
-    def __call__(
+    def __call__(  # noqa: D102
         self,
         __left: object,
         __message_context: str,
@@ -358,7 +349,7 @@ class PGetText(BaseTranslateFilter, TranslatableFilter):
 
         return text
 
-    def message(
+    def message(  # noqa: D102
         self, left: Expression, _filter: Filter, lineno: int
     ) -> Optional[MessageText]:
         if len(_filter.args) < 1:
@@ -382,7 +373,7 @@ class NPGetText(BaseTranslateFilter, TranslatableFilter):
     name = "npgettext"
 
     @liquid_filter
-    def __call__(
+    def __call__(  # noqa: D102
         self,
         __left: object,
         __message_context: str,
@@ -426,13 +417,13 @@ class NPGetText(BaseTranslateFilter, TranslatableFilter):
 
         return text
 
-    def message(
+    def message(  # noqa: D102
         self,
         left: Expression,
         _filter: Filter,
         lineno: int,
     ) -> Optional[MessageText]:
-        if len(_filter.args) < 2:
+        if len(_filter.args) < 2:  # noqa: PLR2004
             return None
 
         ctx, plural = _filter.args[:2]

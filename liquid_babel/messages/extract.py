@@ -1,7 +1,6 @@
 """Extract localization messages from Liquid templates."""
 import os
 from pathlib import Path
-
 from typing import Any
 from typing import Dict
 from typing import Iterator
@@ -12,16 +11,13 @@ from typing import Tuple
 from typing import Union
 
 from babel.messages import Catalog
-
 from liquid import Environment
 from liquid.ast import Node
-
+from liquid.builtin.tags.comment_tag import CommentNode
 from liquid.expression import Expression
 from liquid.expression import FilteredExpression
-
 from liquid.template import BoundTemplate
 from liquid.token import TOKEN_TAG
-from liquid.builtin.tags.comment_tag import CommentNode
 
 from .translations import DEFAULT_COMMENT_TAGS
 from .translations import DEFAULT_KEYWORDS
@@ -69,7 +65,7 @@ def extract_from_templates(
             # See https://github.com/python-babel/babel/blob/master/babel/messages/extract.py#L262
             spec: SPEC = keywords[funcname] or (1,)
             if not isinstance(messages, (list, tuple)):
-                messages = (messages,)
+                messages = (messages,)  # noqa: PLW2901
             if not messages:
                 continue
             if len(spec) != len(messages):
@@ -89,7 +85,7 @@ def extract_from_templates(
                 continue
 
             if strip_comment_tags:
-                comments = _strip_comment_tags(comments, comment_tags)
+                comments = _strip_comment_tags(comments, comment_tags)  # noqa: PLW2901
 
             # Use the template's path if it has one
             template_name = template.name
@@ -99,7 +95,7 @@ def extract_from_templates(
                 template_name = os.path.join(template.path, template_name)
 
             catalog.add(
-                message[0] if len(message) == 1 else message,
+                message[0] if len(message) == 1 else message,  # type: ignore
                 "",
                 [(template_name, lineno)],
                 auto_comments=comments,
@@ -134,7 +130,6 @@ def extract_liquid(
     to extract messages from an existing template bound to an existing
     environment.
     """
-    # pylint: disable=import-outside-toplevel
     from liquid_babel.filters import register_translation_filters
     from liquid_babel.tags.translate import TranslateTag
 
@@ -198,7 +193,6 @@ def extract_from_template(
             and token.value in _keywords
             and isinstance(node, TranslatableTag)
         ):
-
             for lineno, funcname, message in node.messages():
                 if _comments and _comments[-1][0] < lineno - 1:
                     _comments.clear()
@@ -232,7 +226,11 @@ def _extract_from_filters(
         _filter = expression.filters[0]
         filter_func = environment.filters.get(_filter.name)
         if _filter.name in keywords and isinstance(filter_func, TranslatableFilter):
-            message = filter_func.message(expression.expression, _filter, lineno)  # type: ignore
+            message = filter_func.message(  # type: ignore
+                expression.expression,
+                _filter,
+                lineno,
+            )
             if message:
                 yield message
 

@@ -1,10 +1,8 @@
 """Test message translation edge cases."""
-# pylint: disable=missing-class-docstring,missing-function-docstring,too-many-public-methods
 import unittest
 
 from liquid import Environment
 from liquid import StrictUndefined
-
 from liquid.exceptions import UndefinedError
 
 from liquid_babel.filters import register_translation_filters

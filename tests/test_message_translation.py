@@ -1,10 +1,7 @@
 """Test cases for rendering translatable messages."""
-# pylint: disable=missing-class-docstring,missing-function-docstring,too-many-public-methods
-
 import asyncio
 import re
 import unittest
-
 from gettext import NullTranslations
 from typing import List
 
