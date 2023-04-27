@@ -9,13 +9,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { python: "3.10", os: ubuntu-latest, cmd: test.py310:test }
-          - { python: "3.10", os: windows-latest, cmd: test.py310:test }
-          - { python: "3.10", os: macos-latest, cmd: test.py310:test }
-          - { python: "3.11", os: ubuntu-latest, cmd: test.py311:test }
-          - { python: "3.9", os: ubuntu-latest, cmd: test.py39:test }
-          - { python: "3.8", os: ubuntu-latest, cmd: test.py38:test }
-          - { python: "pypy-3.9", os: ubuntu-latest, cmd: test.pypy39:test }
+          - { python: "3.10", os: ubuntu-latest, cmd: "test.py310:test" }
+          - { python: "3.10", os: windows-latest, cmd: "test.py310:test" }
+          - { python: "3.10", os: macos-latest, cmd: "test.py310:test" }
+          - { python: "3.11", os: ubuntu-latest, cmd: "test.py311:test" }
+          - { python: "3.9", os: ubuntu-latest, cmd: "test.py39:test" }
+          - { python: "3.8", os: ubuntu-latest, cmd: "test.py38:test" }
+          - { python: "pypy-3.9", os: ubuntu-latest, cmd: "test.pypy39:test" }
           - { python: "3.10", os: ubuntu-latest, cmd: lint }
           - { python: "3.10", os: ubuntu-latest, cmd: typing }
           - { python: "3.10", os: ubuntu-latest, cmd: cov }
