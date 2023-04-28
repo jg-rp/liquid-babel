@@ -12,8 +12,8 @@ class TranslationSyntaxError(LiquidSyntaxError):
 
 
 class TranslationValueError(TranslationError):
-    """Exception raised when translation message interpolation fails with a ValueError."""
+    """Exception raised when message interpolation fails with a ValueError."""
 
 
 class TranslationKeyError(TranslationError):
-    """Exception raised when translation message interpolation fails with a KeyError."""
+    """Exception raised when message interpolation fails with a KeyError."""

@@ -3,26 +3,24 @@ from __future__ import annotations
 
 from decimal import Decimal
 from functools import wraps
-
+from typing import TYPE_CHECKING
 from typing import Any
 from typing import Callable
-from typing import cast
 from typing import Optional
 from typing import Union
-from typing import TYPE_CHECKING
+from typing import cast
 
 from babel import Locale
-from babel import numbers
 from babel import UnknownLocaleError
+from babel import numbers
 from babel import units
-
-
-from liquid import Context
 from liquid.context import is_undefined
 from liquid.exceptions import FilterArgumentError
 from liquid.filter import num_arg
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
+    from liquid import Context
+
     FilterT = Callable[..., Any]
 
 
@@ -39,7 +37,6 @@ def unit_filter(_filter: FilterT) -> FilterT:
     return wrapper
 
 
-# pylint: disable=too-few-public-methods too-many-instance-attributes
 class Unit:
     """A Liquid filter for formatting units of measurement.
 
@@ -95,9 +92,8 @@ class Unit:
         self.input_locale_var = input_locale_var
         self.default_input_locale = Locale.parse(default_input_locale)
 
-    # pylint: disable=redefined-builtin
     @unit_filter
-    def __call__(
+    def __call__(  # noqa: D102
         self,
         left: object,
         measurement_unit: str,
@@ -106,7 +102,7 @@ class Unit:
         denominator: object = None,
         denominator_unit: Optional[str] = None,
         length: Optional[str] = None,
-        format: Optional[str] = None,
+        format: Optional[str] = None,  # noqa: A002
     ) -> str:
         locale = self._resolve_locale(
             context,
@@ -119,10 +115,7 @@ class Unit:
             default=self.default_input_locale,
         )
 
-        if length:
-            _length = length
-        else:
-            _length = context.resolve(self.length_var)
+        _length = length if length else context.resolve(self.length_var)
 
         if _length not in ("short", "long", "narrow"):
             _length = self.default_length
@@ -155,15 +148,12 @@ class Unit:
                 ),
             )
 
-        return cast(
-            str,
-            units.format_unit(
-                _parse_decimal(left, input_locale),
-                measurement_unit=measurement_unit,
-                length=_length,
-                format=_format,
-                locale=locale,
-            ),
+        return units.format_unit(
+            _parse_decimal(left, input_locale),
+            measurement_unit=measurement_unit,
+            length=_length,
+            format=_format,
+            locale=locale,
         )
 
     def _resolve_locale(
@@ -187,7 +177,7 @@ class Unit:
 def _parse_decimal(val: object, locale: Union[str, Locale]) -> Decimal:
     if isinstance(val, str):
         try:
-            return cast(Decimal, numbers.parse_decimal(val, locale))
+            return numbers.parse_decimal(val, locale)
         except numbers.NumberFormatError:
             return Decimal(0)
 

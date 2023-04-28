@@ -1,9 +1,7 @@
 """Test cases for the unit filter."""
-# pylint: disable=missing-class-docstring,missing-function-docstring
 import unittest
 
 from babel import UnknownLocaleError
-
 from liquid import Environment
 from liquid.exceptions import FilterArgumentError
 
@@ -109,7 +107,7 @@ class UnitFilterTestCase(unittest.TestCase):
         self.assertEqual(result, "1.99 meters")
 
     def test_invalid_string_left_value(self) -> None:
-        """Test that invalid decimals default to zero"""
+        """Test that invalid decimals default to zero."""
         env = Environment()
         env.add_filter("unit", unit)
         template = env.from_string("{{ 'not a number' | unit: 'length-meter' }}")

@@ -1,19 +1,15 @@
 """Test cases for the datetime filter."""
-# pylint: disable=missing-class-docstring,missing-function-docstring
 import datetime
 import unittest
 
 import pytz
-
 from babel import UnknownLocaleError
-
 from liquid import Environment
 from liquid.exceptions import FilterArgumentError
 
 from liquid_babel.filters import DateTime
 
 
-# pylint: disable=too-many-public-methods
 class DateTimeFilterTestCase(unittest.TestCase):
     def test_default_options(self) -> None:
         """Test the default timezone, format and locale."""
@@ -21,7 +17,7 @@ class DateTimeFilterTestCase(unittest.TestCase):
         env.add_filter("datetime", DateTime())
         template = env.from_string("{{ dt | datetime }}")
         result = template.render(dt=datetime.datetime(2007, 4, 1, 15, 30))
-        self.assertEqual(result, "Apr 1, 2007, 3:30:00 PM")
+        self.assertRegex(result, r"Apr 1, 2007, 3:30:00\sPM")
 
     def test_short_format(self) -> None:
         """Test the built-in short format."""
@@ -30,7 +26,7 @@ class DateTimeFilterTestCase(unittest.TestCase):
 
         template = env.from_string("{{ dt | datetime: format: 'short' }}")
         result = template.render(dt=datetime.datetime(2007, 4, 1, 15, 30))
-        self.assertEqual(result, "4/1/07, 3:30 PM")
+        self.assertRegex(result, r"4/1/07, 3:30\sPM")
 
     def test_medium_format(self) -> None:
         """Test the built-in medium format."""
@@ -39,7 +35,7 @@ class DateTimeFilterTestCase(unittest.TestCase):
 
         template = env.from_string("{{ dt | datetime: format: 'medium' }}")
         result = template.render(dt=datetime.datetime(2007, 4, 1, 15, 30))
-        self.assertEqual(result, "Apr 1, 2007, 3:30:00 PM")
+        self.assertRegex(result, r"Apr 1, 2007, 3:30:00\sPM")
 
     def test_long_format(self) -> None:
         """Test the built-in long format."""
@@ -48,7 +44,7 @@ class DateTimeFilterTestCase(unittest.TestCase):
 
         template = env.from_string("{{ dt | datetime: format: 'long' }}")
         result = template.render(dt=datetime.datetime(2007, 4, 1, 15, 30))
-        self.assertEqual(result, "April 1, 2007 at 3:30:00 PM UTC")
+        self.assertRegex(result, r"April 1, 2007, 3:30:00\sPM UTC")
 
     def test_full_format(self) -> None:
         """Test the built-in full format."""
@@ -57,8 +53,8 @@ class DateTimeFilterTestCase(unittest.TestCase):
 
         template = env.from_string("{{ dt | datetime: format: 'full' }}")
         result = template.render(dt=datetime.datetime(2007, 4, 1, 15, 30))
-        self.assertEqual(
-            result, "Sunday, April 1, 2007 at 3:30:00 PM Coordinated Universal Time"
+        self.assertRegex(
+            result, r"Sunday, April 1, 2007, 3:30:00\sPM Coordinated Universal Time"
         )
 
     def test_custom_format(self) -> None:
@@ -100,7 +96,7 @@ class DateTimeFilterTestCase(unittest.TestCase):
 
         template = env.from_string("{{ dt | datetime }}")
         result = template.render(dt=datetime.datetime(2007, 4, 1, 15, 30))
-        self.assertEqual(result, "Apr 1, 2007, 4:30:00 PM")
+        self.assertRegex(result, r"Apr 1, 2007, 4:30:00\sPM")
 
     def test_get_timezone_from_context(self) -> None:
         """Test we can get a timezone from the render context."""
@@ -112,7 +108,7 @@ class DateTimeFilterTestCase(unittest.TestCase):
             dt=datetime.datetime(2007, 4, 1, 15, 30),
             timezone="Etc/GMT-1",
         )
-        self.assertEqual(result, "Apr 1, 2007, 4:30:00 PM")
+        self.assertRegex(result, r"Apr 1, 2007, 4:30:00\sPM")
 
     def test_unknown_timezone_falls_back_to_default(self) -> None:
         """Test we handle unknown timezones."""
@@ -124,7 +120,7 @@ class DateTimeFilterTestCase(unittest.TestCase):
             dt=datetime.datetime(2007, 4, 1, 15, 30),
             timezone="foo",
         )
-        self.assertEqual(result, "Apr 1, 2007, 3:30:00 PM")
+        self.assertRegex(result, r"Apr 1, 2007, 3:30:00\sPM")
 
     def test_unknown_default_timezone(self) -> None:
         """Test that an unknown default timezone fails early."""
@@ -170,7 +166,7 @@ class DateTimeFilterTestCase(unittest.TestCase):
             locale="nosuchthing",
             dt=datetime.datetime(2007, 4, 1, 15, 30),
         )
-        self.assertEqual(result, "Apr 1, 2007, 3:30:00 PM")
+        self.assertRegex(result, r"Apr 1, 2007, 3:30:00\sPM")
 
     def test_parse_string(self) -> None:
         """Test that we parse strings to datetime objects."""
@@ -180,7 +176,7 @@ class DateTimeFilterTestCase(unittest.TestCase):
             "{{ 'Apr 1, 2007, 3:30:00 PM' | datetime: format: 'short' }}"
         )
         result = template.render()
-        self.assertEqual(result, "4/1/07, 3:30 PM")
+        self.assertRegex(result, r"4/1/07, 3:30\sPM")
 
     def test_parse_string_with_tzinfo(self) -> None:
         """Test that we parse strings to datetime objects."""
@@ -190,7 +186,7 @@ class DateTimeFilterTestCase(unittest.TestCase):
             "{{ 'Apr 1, 2007, 3:30:00 PM GMT-1' | datetime: format: 'short' }}"
         )
         result = template.render()
-        self.assertEqual(result, "4/1/07, 2:30 PM")
+        self.assertRegex(result, r"4/1/07, 2:30\sPM")
 
     def test_set_default_input_timezone(self) -> None:
         """Test that we can set the default input timezone."""
@@ -200,7 +196,7 @@ class DateTimeFilterTestCase(unittest.TestCase):
             "{{ 'Apr 1, 2007, 3:30:00 PM' | datetime: format: 'short' }}"
         )
         result = template.render()
-        self.assertEqual(result, "4/1/07, 2:30 PM")
+        self.assertRegex(result, r"4/1/07, 2:30\sPM")
 
     def test_garbage_left_value(self) -> None:
         """Test that we get an exception of the input string is garbage."""
@@ -232,7 +228,7 @@ class DateTimeFilterTestCase(unittest.TestCase):
         env.add_filter("datetime", DateTime())
         template = env.from_string("{{ dt | datetime: }}")
         result = template.render(dt=datetime.date(2007, 4, 1))
-        self.assertEqual(result, "Apr 1, 2007, 12:00:00 AM")
+        self.assertRegex(result, r"Apr 1, 2007, 12:00:00\sAM")
 
     def test_integer_input(self) -> None:
         """Test that we handle unix timestamps."""
@@ -240,7 +236,7 @@ class DateTimeFilterTestCase(unittest.TestCase):
         env.add_filter("datetime", DateTime())
         template = env.from_string("{{ dt | datetime: }}")
         result = template.render(dt=1152098955)
-        self.assertEqual(result, "Jul 5, 2006, 11:29:15 AM")
+        self.assertRegex(result, r"Jul 5, 2006, 11:29:15\sAM")
 
     def test_arbitrary_object_input(self) -> None:
         """Test that we handle unix timestamps."""
@@ -258,7 +254,7 @@ class DateTimeFilterTestCase(unittest.TestCase):
             "{{ 'Apr 1, 2007, 3:30:00 PM' | datetime: format: 'short' }}"
         )
         result = template.render(datetime_format="full")
-        self.assertEqual(result, "4/1/07, 3:30 PM")
+        self.assertRegex(result, r"4/1/07, 3:30\sPM")
 
     def test_string_representation_of_integer_input(self) -> None:
         """Test that we handle unix timestamps given as a string."""
@@ -266,7 +262,7 @@ class DateTimeFilterTestCase(unittest.TestCase):
         env.add_filter("datetime", DateTime())
         template = env.from_string("{{ dt | datetime: }}")
         result = template.render(dt="1152098955")
-        self.assertEqual(result, "Jul 5, 2006, 11:29:15 AM")
+        self.assertRegex(result, r"Jul 5, 2006, 11:29:15\sAM")
 
     def test_string_representation_of_float_input(self) -> None:
         """Test that we handle unix timestamps given as a string."""
@@ -274,4 +270,4 @@ class DateTimeFilterTestCase(unittest.TestCase):
         env.add_filter("datetime", DateTime())
         template = env.from_string("{{ dt | datetime: }}")
         result = template.render(dt="1152098955.0")
-        self.assertEqual(result, "Jul 5, 2006, 11:29:15 AM")
+        self.assertRegex(result, r"Jul 5, 2006, 11:29:15\sAM")

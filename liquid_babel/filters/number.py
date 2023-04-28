@@ -1,23 +1,19 @@
 """A decimal formatting filter for Python Liquid."""
 from decimal import Decimal
-
-from typing import cast
 from typing import Optional
 from typing import Union
+from typing import cast
 
-from babel import numbers
 from babel import Locale
 from babel import UnknownLocaleError
-
+from babel import numbers
 from liquid import Context
 from liquid.context import is_undefined
-
 from liquid.filter import liquid_filter
 from liquid.filter import num_arg
 from liquid.filter import with_context
 
 
-# pylint: disable=too-few-public-methods too-many-instance-attributes
 @with_context
 class Number:
     """A Liquid filter for formatting decimal values.
@@ -72,7 +68,7 @@ class Number:
         self.default_input_locale = Locale.parse(default_input_locale)
 
     @liquid_filter
-    def __call__(
+    def __call__(  # noqa: D102
         self,
         left: object,
         *,
@@ -127,7 +123,7 @@ class Number:
 def _parse_decimal(val: object, locale: Union[str, Locale]) -> Decimal:
     if isinstance(val, str):
         try:
-            return cast(Decimal, numbers.parse_decimal(val, locale))
+            return numbers.parse_decimal(val, locale)
         except numbers.NumberFormatError:
             return Decimal(0)
 

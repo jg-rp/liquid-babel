@@ -1,9 +1,7 @@
 """Test cases for the decimal filter."""
-# pylint: disable=missing-class-docstring,missing-function-docstring
 import unittest
 
 from babel import UnknownLocaleError
-
 from liquid import Environment
 
 from liquid_babel.filters import Number
@@ -104,7 +102,7 @@ class NumberFilterTestCase(unittest.TestCase):
         self.assertEqual(result, "1.99")
 
     def test_invalid_string_left_value(self) -> None:
-        """Test that invalid decimals default to zero"""
+        """Test that invalid decimals default to zero."""
         env = Environment()
         env.add_filter("decimal", number)
         template = env.from_string("{{ 'not a number' | decimal }}")

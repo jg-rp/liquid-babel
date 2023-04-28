@@ -1,5 +1,9 @@
 # Python Liquid Babel Change Log
 
+## Version 1.0.1 (unreleased)
+
+- Test against Python Babel 2.12 which includes CLDR 42.
+
 ## Version 1.0.0
 
 **Features**
