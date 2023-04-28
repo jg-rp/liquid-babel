@@ -40,7 +40,7 @@ Documentation = "https://jg-rp.github.io/liquid/babel/introduction"
 path = "liquid_babel/__init__.py"
 
 [tool.hatch.build.targets.sdist]
-packages = ["liquid+babel"]
+packages = ["liquid_babel"]
 exclude = ["/**/.mypy_cache/"]
 
 [tool.hatch.build.targets.wheel]
