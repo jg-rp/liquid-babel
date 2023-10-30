@@ -21,6 +21,7 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
     "babel>=2.10.0",
@@ -68,7 +69,7 @@ lint = "ruff check ."
 typing = "mypy"
 
 [[tool.hatch.envs.test.matrix]]
-python = ["37", "38", "39", "310", "311", "pypy38", "pypy39"]
+python = ["37", "38", "39", "310", "311", "312", "pypy38", "pypy39"]
 
 [tool.hatch.envs.test.scripts]
 test = "pytest {args}"
@@ -137,6 +138,7 @@ ignore = [
     "N818",
     "PT009",
     "B905",
+    "PT027",
 ]
 
 fixable = ["I", "SIM", "D202"]
